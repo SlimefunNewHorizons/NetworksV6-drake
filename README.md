@@ -113,3 +113,13 @@ Licencia **GPL-3.0-only** / **MIT**.
 
 </div>
 >>>>>>> 2ac7eb3c (assets: actualizar banner canonico, icono PNG 512x512 y documentacion detallada)
+
+---
+
+## 📄 License & Upstream Attribution
+
+This project is a sovereign fork maintained by [**JackStar6677-1**](https://github.com/JackStar6677-1) under [**DrakesCraft Labs**](https://github.com/DrakesCraft-Labs).
+
+- **Original Project:** Created by the upstream authors and the open-source community.
+- **DrakesCraft Optimizations:** Modernized for Paper/Purpur 1.21.11+, Java 21, high concurrency, asynchronous safety, and exploit/duplication prevention.
+- **License:** Distributed under the original **GNU General Public License v3.0 (GPLv3)** (or original upstream license). See the [LICENSE](LICENSE) file for complete terms.
