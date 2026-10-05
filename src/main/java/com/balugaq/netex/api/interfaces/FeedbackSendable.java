@@ -40,6 +40,9 @@ public interface FeedbackSendable {
     }
 
     static void sendFeedback0(@NotNull Location location, @NotNull FeedbackType type) {
+        if (SUBSCRIBED_LOCATIONS.isEmpty()) {
+            return;
+        }
         for (UUID uuid : SUBSCRIBED_LOCATIONS.keySet()) {
             if (SUBSCRIBED_LOCATIONS.get(uuid).contains(location)) {
                 Player player = Bukkit.getServer().getPlayer(uuid);
@@ -56,6 +59,9 @@ public interface FeedbackSendable {
     }
 
     default void sendFeedback(@NotNull Location location, @NotNull FeedbackType type) {
+        if (SUBSCRIBED_LOCATIONS.isEmpty()) {
+            return;
+        }
         for (UUID uuid : SUBSCRIBED_LOCATIONS.keySet()) {
             if (SUBSCRIBED_LOCATIONS.get(uuid).contains(location)) {
                 Player player = Bukkit.getServer().getPlayer(uuid);

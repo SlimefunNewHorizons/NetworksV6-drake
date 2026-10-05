@@ -252,11 +252,11 @@ public abstract class NetworkDirectional extends NetworkObject {
 
     @NotNull
     protected BlockFace getCurrentDirection(@NotNull BlockMenu blockMenu) {
-        BlockFace direction = SELECTED_DIRECTION_MAP.get(blockMenu.getLocation().clone());
+        BlockFace direction = SELECTED_DIRECTION_MAP.get(blockMenu.getLocation());
 
         if (direction == null) {
             direction = BlockFace.valueOf(StorageCacheUtils.getData(blockMenu.getLocation(), DIRECTION));
-            SELECTED_DIRECTION_MAP.put(blockMenu.getLocation().clone(), direction);
+            SELECTED_DIRECTION_MAP.put(blockMenu.getLocation(), direction);
         }
         return direction;
     }
