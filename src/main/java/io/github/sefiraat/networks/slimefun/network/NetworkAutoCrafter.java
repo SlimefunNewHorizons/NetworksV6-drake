@@ -196,6 +196,12 @@ public class NetworkAutoCrafter extends NetworkObject {
     }
 
     private void updateStatus(@Nonnull BlockMenu blockMenu, @Nonnull CrafterStatus status, @Nullable String summary, @Nullable List<String> details) {
+        // The status pane is only visible while a player has the menu open.
+        // Avoid allocating lore and serializing an ItemStack for every machine tick
+        // when nobody can observe the diagnostic.
+        if (!blockMenu.hasViewer()) {
+            return;
+        }
         blockMenu.replaceExistingItem(STATUS_SLOT, getStatusIcon(status, summary, details));
     }
 
@@ -266,10 +272,15 @@ public class NetworkAutoCrafter extends NetworkObject {
             return;
         }
 
-        List<String> missing = checkMissingMaterials(root, instance, blueprintAmount);
-        if (!missing.isEmpty()) {
-            updateStatus(blockMenu, CrafterStatus.MISSING_MATERIALS, Theme.ERROR + "Faltan ingredientes en la red:", missing);
-            return;
+        // tryCraft already performs the authoritative, atomic extraction. The
+        // preflight scan exists solely to render a player-facing explanation;
+        // running it for closed menus traverses the network a second time each tick.
+        if (blockMenu.hasViewer()) {
+            List<String> missing = checkMissingMaterials(root, instance, blueprintAmount);
+            if (!missing.isEmpty()) {
+                updateStatus(blockMenu, CrafterStatus.MISSING_MATERIALS, Theme.ERROR + "Faltan ingredientes en la red:", missing);
+                return;
+            }
         }
 
         if (tryCraft(blockMenu, instance, root, blueprintAmount)) {
