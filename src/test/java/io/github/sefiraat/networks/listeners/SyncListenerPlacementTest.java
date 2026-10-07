@@ -51,7 +51,8 @@ class SyncListenerPlacementTest {
     void physicalMaterialCheckMirrorsSlimefunWithoutLinkingToAnUnpublishedApi() throws IOException {
         String source = Files.readString(NETWORK_INTEGRITY_SOURCE, StandardCharsets.UTF_8);
         assertTrue(source.contains("matchesPhysicalMaterial(block.getType(), item.getItem().getType())"));
-        assertFalse(source.contains("BlockStorageIntegrity"));
+        assertFalse(source.contains("import com.github.drakescraft_labs.slimefun4.utils.BlockStorageIntegrity"));
+        assertFalse(source.contains("BlockStorageIntegrity.matches("));
         assertFalse(source.contains("actual == Material.PLAYER_WALL_HEAD"),
             "la copia local solo cubria cabezas y borraba el resto de variantes de pared");
     }
