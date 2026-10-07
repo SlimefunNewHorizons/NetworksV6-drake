@@ -57,7 +57,7 @@ public final class NetworkIntegrity {
         return matchesPhysicalMaterial(block.getType(), item.getItem().getType());
     }
 
-    private static boolean matchesPhysicalMaterial(@Nonnull Material physical, @Nonnull Material expected) {
+    static boolean matchesPhysicalMaterial(@Nonnull Material physical, @Nonnull Material expected) {
         if (physical == expected || (isCauldron(physical) && isCauldron(expected))) {
             return true;
         }

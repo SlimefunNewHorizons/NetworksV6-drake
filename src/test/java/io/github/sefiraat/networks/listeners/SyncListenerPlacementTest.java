@@ -1,9 +1,8 @@
-package io.github.sefiraat.networks.listeners;
+package io.github.sefiraat.networks.utils;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.github.drakescraft_labs.slimefun4.utils.BlockStorageIntegrity;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -49,18 +48,19 @@ class SyncListenerPlacementTest {
     }
 
     @Test
-    void physicalMaterialCheckDelegatesToSlimefun() throws IOException {
+    void physicalMaterialCheckMirrorsSlimefunWithoutLinkingToAnUnpublishedApi() throws IOException {
         String source = Files.readString(NETWORK_INTEGRITY_SOURCE, StandardCharsets.UTF_8);
-        assertTrue(source.contains("BlockStorageIntegrity.matches(block, item)"));
+        assertTrue(source.contains("matchesPhysicalMaterial(block.getType(), item.getItem().getType())"));
+        assertFalse(source.contains("BlockStorageIntegrity"));
         assertFalse(source.contains("actual == Material.PLAYER_WALL_HEAD"),
             "la copia local solo cubria cabezas y borraba el resto de variantes de pared");
     }
 
     @Test
     void wallVariantsAreNotTreatedAsGhosts() {
-        assertTrue(BlockStorageIntegrity.matches(Material.PLAYER_WALL_HEAD, Material.PLAYER_HEAD));
-        assertTrue(BlockStorageIntegrity.matches(Material.WALL_TORCH, Material.TORCH));
-        assertTrue(BlockStorageIntegrity.matches(Material.OAK_WALL_SIGN, Material.OAK_SIGN));
-        assertFalse(BlockStorageIntegrity.matches(Material.DIRT, Material.PLAYER_HEAD));
+        assertTrue(NetworkIntegrity.matchesPhysicalMaterial(Material.PLAYER_WALL_HEAD, Material.PLAYER_HEAD));
+        assertTrue(NetworkIntegrity.matchesPhysicalMaterial(Material.WALL_TORCH, Material.TORCH));
+        assertTrue(NetworkIntegrity.matchesPhysicalMaterial(Material.OAK_WALL_SIGN, Material.OAK_SIGN));
+        assertFalse(NetworkIntegrity.matchesPhysicalMaterial(Material.DIRT, Material.PLAYER_HEAD));
     }
 }
