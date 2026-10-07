@@ -33,14 +33,24 @@ import org.bukkit.inventory.ItemStack;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class NetworkVacuum extends NetworkObject {
 
     private static final int[] INPUT_SLOTS = new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8};
+    /**
+     * An empty spatial query is the common case for unattended vacuums. Rechecking it every
+     * server tick makes each machine traverse the world's entity lookup even when there is
+     * nothing to collect. Half a second remains responsive for drops while avoiding that idle
+     * main-thread cost.
+     */
+    private static final int EMPTY_SCAN_DELAY_TICKS = 10;
 
     private final ItemSetting<Integer> tickRate;
     private final ItemSetting<Integer> vacuumRange;
+    private final Map<Location, Integer> emptyScanCooldowns = new ConcurrentHashMap<>();
 
     public NetworkVacuum(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
         super(itemGroup, item, recipeType, recipe, NodeType.VACUUM);
@@ -70,7 +80,9 @@ public class NetworkVacuum extends NetworkObject {
                         addToRegistry(block);
                         if (blockMenu != null) {
                             tryAddItem(blockMenu);
-                            findItem(blockMenu);
+                            if (isScanDue(block.getLocation())) {
+                                findItem(blockMenu);
+                            }
                         }
                     }
                 }
@@ -93,6 +105,7 @@ public class NetworkVacuum extends NetworkObject {
                     .getNearbyEntities(location, range, range, range, Item.class::isInstance);
                 Optional<Entity> optionalEntity = items.stream().findFirst();
                 if (optionalEntity.isEmpty() || !(optionalEntity.get() instanceof Item item)) {
+                    deferEmptyScan(blockMenu.getLocation());
                     return;
                 }
                 if (item.isValid() && !item.isDead() && item.getPickupDelay() <= 0 && !SlimefunUtils.hasNoPickupFlag(item)) {
@@ -101,10 +114,27 @@ public class NetworkVacuum extends NetworkObject {
                     blockMenu.markDirty();
                     ParticleUtils.displayParticleRandomly(item, 1, 5, new Particle.DustOptions(Color.BLUE, 1));
                     item.remove();
+                } else {
+                    deferEmptyScan(blockMenu.getLocation());
                 }
                 return;
             }
         }
+    }
+
+    private boolean isScanDue(@Nonnull Location location) {
+        return emptyScanCooldowns.compute(location, (ignored, remaining) ->
+            remaining == null || remaining <= 1 ? null : remaining - 1
+        ) == null;
+    }
+
+    private void deferEmptyScan(@Nonnull Location location) {
+        emptyScanCooldowns.put(location, EMPTY_SCAN_DELAY_TICKS);
+    }
+
+    @Override
+    protected void clearCachedState(@Nonnull Location location) {
+        emptyScanCooldowns.remove(location);
     }
 
     private void tryAddItem(@Nonnull BlockMenu blockMenu) {

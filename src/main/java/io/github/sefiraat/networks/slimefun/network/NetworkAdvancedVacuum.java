@@ -35,12 +35,15 @@ import org.bukkit.inventory.ItemStack;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** High-throughput vacuum with persistent filters stored in native BlockStorage. */
 public final class NetworkAdvancedVacuum extends NetworkObject {
 
     private static final String FILTER_MODE_KEY = "advanced-vacuum-filter-mode";
     private static final String MATCH_MODE_KEY = "advanced-vacuum-match-mode";
+    private static final int EMPTY_SCAN_DELAY_TICKS = 10;
     private static final int[] INPUT_SLOTS = {
         0, 1, 2, 3, 4, 5, 6, 7, 8,
         9, 10, 11, 12, 13, 14, 15, 16, 17
@@ -58,6 +61,7 @@ public final class NetworkAdvancedVacuum extends NetworkObject {
 
     private final ItemSetting<Integer> tickRate;
     private final ItemSetting<Integer> vacuumRange;
+    private final Map<Location, Integer> emptyScanCooldowns = new ConcurrentHashMap<>();
 
     public NetworkAdvancedVacuum(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
         super(itemGroup, item, recipeType, recipe, NodeType.ADVANCED_VACUUM);
@@ -90,7 +94,9 @@ public final class NetworkAdvancedVacuum extends NetworkObject {
                 }
                 addToRegistry(block);
                 flushBuffer(menu);
-                collectOneItem(menu);
+                if (isScanDue(block.getLocation())) {
+                    collectOneItem(menu);
+                }
             }
 
             @Override
@@ -146,6 +152,22 @@ public final class NetworkAdvancedVacuum extends NetworkObject {
             ParticleUtils.displayParticleRandomly(item, 1, 5, new Particle.DustOptions(Color.AQUA, 1));
             return;
         }
+        deferEmptyScan(menu.getLocation());
+    }
+
+    private boolean isScanDue(@Nonnull Location location) {
+        return emptyScanCooldowns.compute(location, (ignored, remaining) ->
+            remaining == null || remaining <= 1 ? null : remaining - 1
+        ) == null;
+    }
+
+    private void deferEmptyScan(@Nonnull Location location) {
+        emptyScanCooldowns.put(location, EMPTY_SCAN_DELAY_TICKS);
+    }
+
+    @Override
+    protected void clearCachedState(@Nonnull Location location) {
+        emptyScanCooldowns.remove(location);
     }
 
     private int findFreeInputSlot(@Nonnull BlockMenu menu) {
