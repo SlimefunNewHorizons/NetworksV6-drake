@@ -5,7 +5,6 @@ import io.github.sefiraat.networks.network.NetworkRoot;
 import io.github.sefiraat.networks.network.NodeDefinition;
 import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItem;
 import com.github.drakescraft_labs.slimefun4.legacy.api.BlockStorage;
-import com.github.drakescraft_labs.slimefun4.utils.BlockStorageIntegrity;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -50,12 +49,32 @@ public final class NetworkIntegrity {
      * A non-air vanilla block is not enough: stale NTW metadata on dirt or snow previously made
      * Networks treat an invisible machine as real and Slimefun rejected every replacement.
      *
-     * Se delega en el predicado de Slimefun para no mantener una copia mas pobre: la version
-     * local solo toleraba PLAYER_HEAD/PLAYER_WALL_HEAD, asi que cualquier maquina cuya base
-     * fuese antorcha, cartel o estandarte colocada en pared se daba por fantasma y se borraba.
+     * This deliberately mirrors Slimefun's physical-material predicate instead of linking to
+     * it: the currently published 1.21.11 Drake API predates BlockStorageIntegrity. Networks
+     * items are all physical NTW_* blocks, so virtual-item exemptions do not apply here.
      */
     public static boolean hasExpectedPhysicalMaterial(@Nonnull Block block, @Nonnull SlimefunItem item) {
-        return BlockStorageIntegrity.matches(block, item);
+        return matchesPhysicalMaterial(block.getType(), item.getItem().getType());
+    }
+
+    private static boolean matchesPhysicalMaterial(@Nonnull Material physical, @Nonnull Material expected) {
+        if (physical == expected || (isCauldron(physical) && isCauldron(expected))) {
+            return true;
+        }
+
+        final String physicalName = physical.name();
+        if (physicalName.startsWith("WALL_") && physicalName.substring(5).equals(expected.name())) {
+            return true;
+        }
+        return physicalName.contains("_WALL_")
+            && physicalName.replace("_WALL_", "_").equals(expected.name());
+    }
+
+    private static boolean isCauldron(@Nonnull Material material) {
+        return material == Material.CAULDRON
+            || material == Material.WATER_CAULDRON
+            || material == Material.LAVA_CAULDRON
+            || material == Material.POWDER_SNOW_CAULDRON;
     }
 
     public static boolean isExpectedMachine(@Nullable Location location, @Nonnull Class<? extends SlimefunItem> type) {
