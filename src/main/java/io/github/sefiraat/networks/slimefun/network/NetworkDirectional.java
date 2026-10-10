@@ -170,7 +170,7 @@ public abstract class NetworkDirectional extends NetworkObject {
 
     @Nonnull
     protected BlockFace getCurrentDirection(@Nonnull BlockMenu blockMenu) {
-        BlockFace direction = SELECTED_DIRECTION_MAP.get(blockMenu.getLocation().clone());
+        BlockFace direction = SELECTED_DIRECTION_MAP.get(blockMenu.getLocation());
 
         if (direction == null) {
             final String string = BlockStorage.getLocationInfo(blockMenu.getLocation(), DIRECTION);
@@ -192,7 +192,10 @@ public abstract class NetworkDirectional extends NetworkObject {
 
     @OverridingMethodsMustInvokeSuper
     protected void onTick(@Nullable BlockMenu blockMenu, @Nonnull Block block) {
-        addToRegistry(block);
+        final Location loc = blockMenu != null ? blockMenu.getLocation() : block.getLocation();
+        if (!NetworkStorage.getAllNetworkObjects().containsKey(loc)) {
+            addToRegistry(block);
+        }
         updateGui(blockMenu);
     }
 
@@ -308,6 +311,7 @@ public abstract class NetworkDirectional extends NetworkObject {
     public void setDirection(BlockMenu blockMenu, BlockFace blockFace) {
         SELECTED_DIRECTION_MAP.put(blockMenu.getLocation().clone(), blockFace);
         BlockStorage.addBlockInfo(blockMenu.getBlock(), DIRECTION, blockFace.name());
+        clearIdleCooldown(blockMenu.getLocation());
     }
 
     @Nonnull
@@ -428,8 +432,32 @@ public abstract class NetworkDirectional extends NetworkObject {
      * getSelectedFace lo consulta antes que a BlockStorage, asi que una entrada vieja se imponia
      * sobre la direccion real de un bloque nuevo.
      */
+    private static final int DEFAULT_IDLE_BACKOFF_CYCLES = 3;
+    private static final Map<Location, Integer> IDLE_COOLDOWNS = new ConcurrentHashMap<>();
+
+    public static boolean isIdleOnCooldown(@Nonnull Location location) {
+        return IDLE_COOLDOWNS.compute(location, (loc, remaining) ->
+            remaining == null || remaining <= 1 ? null : remaining - 1
+        ) != null;
+    }
+
+    public static void deferIdle(@Nonnull Location location) {
+        IDLE_COOLDOWNS.put(location, DEFAULT_IDLE_BACKOFF_CYCLES);
+    }
+
+    public static void clearIdleCooldown(@Nonnull Location location) {
+        IDLE_COOLDOWNS.remove(location);
+    }
+
+    @Override
+    protected void clearCachedState(@Nonnull Location location) {
+        super.clearCachedState(location);
+        forgetSelectedFace(location);
+    }
+
     public static void forgetSelectedFace(@Nonnull Location location) {
         SELECTED_DIRECTION_MAP.remove(location);
+        clearIdleCooldown(location);
     }
 
     /** Solo para pruebas: tamano actual del cache de direcciones. */

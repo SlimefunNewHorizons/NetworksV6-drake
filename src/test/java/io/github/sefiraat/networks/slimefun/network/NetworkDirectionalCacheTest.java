@@ -74,4 +74,21 @@ class NetworkDirectionalCacheTest {
         assertTrue(texto.contains("Cable de Red"),
                 "NetworkDirectional debe indicar que la conexión canónica es con Cable de Red");
     }
+
+    @Test
+    void idleBackoffCooldownIsConfiguredAndCleared() throws IOException {
+        String texto = fuente();
+        assertTrue(texto.contains("isIdleOnCooldown"),
+                "NetworkDirectional debe proveer isIdleOnCooldown para evitar escaneos redundantes");
+        assertTrue(texto.contains("deferIdle"),
+                "NetworkDirectional debe proveer deferIdle para diferir ticks en contenedores vacios");
+        assertTrue(texto.contains("clearIdleCooldown"),
+                "NetworkDirectional debe proveer clearIdleCooldown para limpiar el cooldown en cambios de bloque");
+
+        int forgetFace = texto.indexOf("public static void forgetSelectedFace");
+        assertTrue(forgetFace > 0, "forgetSelectedFace debe existir");
+        String forgetBody = texto.substring(forgetFace, Math.min(texto.length(), forgetFace + 400));
+        assertTrue(forgetBody.contains("clearIdleCooldown"),
+                "forgetSelectedFace debe llamar clearIdleCooldown para no dejar cooldowns huerfanos al romper");
+    }
 }

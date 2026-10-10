@@ -1,5 +1,7 @@
 package io.github.sefiraat.networks.slimefun.network;
 
+import org.bukkit.Location;
+
 import io.github.sefiraat.networks.NetworkStorage;
 import io.github.sefiraat.networks.network.NodeDefinition;
 import io.github.sefiraat.networks.network.NodeType;
@@ -30,22 +32,28 @@ public class NetworkGrabber extends NetworkDirectional {
     protected void onTick(@Nullable BlockMenu blockMenu, @Nonnull Block block) {
         super.onTick(blockMenu, block);
         if (blockMenu != null) {
-            tryGrabItem(blockMenu);
+            final Location loc = blockMenu.getLocation();
+            if (isIdleOnCooldown(loc)) {
+                return;
+            }
+            if (!tryGrabItem(blockMenu)) {
+                deferIdle(loc);
+            }
         }
     }
 
-    private void tryGrabItem(@Nonnull BlockMenu blockMenu) {
+    private boolean tryGrabItem(@Nonnull BlockMenu blockMenu) {
         final NodeDefinition definition = NetworkStorage.getAllNetworkObjects().get(blockMenu.getLocation());
 
         if (definition == null || definition.getNode() == null) {
-            return;
+            return false;
         }
 
         final BlockFace direction = this.getCurrentDirection(blockMenu);
         final BlockMenu targetMenu = BlockStorage.getInventory(blockMenu.getBlock().getRelative(direction));
 
         if (!NetworkTransportUtils.isExternalInventory(targetMenu)) {
-            return;
+            return false;
         }
 
         int[] slots = NetworkTransportUtils.getTransportSlots(targetMenu, ItemTransportFlow.WITHDRAW, null);
@@ -65,10 +73,11 @@ public class NetworkGrabber extends NetworkDirectional {
                     if (definition.getNode().getRoot().isDisplayParticles()) {
                         showParticle(blockMenu.getLocation(), direction);
                     }
-                    break;
+                    return true;
                 }
             }
         }
+        return false;
     }
 
     @Override

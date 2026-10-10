@@ -67,26 +67,32 @@ public class NetworkVanillaGrabber extends NetworkDirectional {
     protected void onTick(@Nullable BlockMenu blockMenu, @Nonnull Block block) {
         super.onTick(blockMenu, block);
         if (blockMenu != null) {
-            tryGrabItem(blockMenu);
+            final Location loc = blockMenu.getLocation();
+            if (isIdleOnCooldown(loc)) {
+                return;
+            }
+            if (!tryGrabItem(blockMenu)) {
+                deferIdle(loc);
+            }
         }
     }
 
-    private void tryGrabItem(@Nonnull BlockMenu blockMenu) {
+    private boolean tryGrabItem(@Nonnull BlockMenu blockMenu) {
         final NodeDefinition definition = NetworkStorage.getAllNetworkObjects().get(blockMenu.getLocation());
 
         if (definition == null || definition.getNode() == null) {
-            return;
+            return false;
         }
 
         final NetworkRoot root = definition.getNode().getRoot();
         final Location accessor = blockMenu.getLocation();
 
-        // Desatascar buffer interno antes de extraer más (#235)
-        flushOutputBuffer(blockMenu, root, accessor);
+        // Desatascar buffer interno antes de extraer mas (#235)
+        boolean flushed = flushOutputBuffer(blockMenu, root, accessor);
 
         final ItemStack pending = blockMenu.getItemInSlot(OUTPUT_SLOT);
         if (pending != null && pending.getType() != Material.AIR) {
-            return;
+            return flushed;
         }
 
         final BlockFace direction = getCurrentDirection(blockMenu);
@@ -94,38 +100,42 @@ public class NetworkVanillaGrabber extends NetworkDirectional {
         final Block targetBlock = block.getRelative(direction);
         final String owner = BlockStorage.getLocationInfo(block.getLocation(), OWNER_KEY);
         if (owner == null) {
-            return;
+            return false;
         }
         final UUID uuid;
         try {
             uuid = UUID.fromString(owner);
         } catch (IllegalArgumentException e) {
-            return;
+            return false;
         }
         // Cacheado unos segundos: esta comprobacion consulta a WorldGuard y se repetia en cada
         // tick de cada nodo para responder casi siempre lo mismo.
         if (!io.github.sefiraat.networks.utils.OwnerAccessCache.canInteract(uuid, targetBlock)) {
-            return;
+            return false;
         }
 
         final BlockState blockState = BlockStateRefreshListener.getFreshState(targetBlock);
 
         if (!(blockState instanceof InventoryHolder holder)) {
-            return;
+            return false;
         }
 
         if (Networks.getSupportedPluginManager().isWildChests()
                 && WildChestsAPI.getChest(targetBlock.getLocation()) != null) {
-            return;
+            return false;
         }
 
         final Inventory inventory = holder.getInventory();
 
         if (inventory instanceof FurnaceInventory furnaceInventory) {
-            tryPullFromInventory(blockMenu, root, accessor, furnaceInventory, 2);
+            if (tryPullFromInventory(blockMenu, root, accessor, furnaceInventory, 2) > 0) {
+                return true;
+            }
             final ItemStack fuel = furnaceInventory.getFuel();
             if (fuel != null && fuel.getType() == Material.BUCKET) {
-                tryPullFromInventory(blockMenu, root, accessor, furnaceInventory, 1);
+                if (tryPullFromInventory(blockMenu, root, accessor, furnaceInventory, 1) > 0) {
+                    return true;
+                }
             }
         } else if (inventory instanceof BrewerInventory brewerInventory) {
             for (int i = 0; i < 3; i++) {
@@ -135,42 +145,44 @@ public class NetworkVanillaGrabber extends NetworkDirectional {
                 }
                 // Guard: solo procesar items con PotionMeta; ingredientes de addons pueden no tenerla (#NPE-brewer).
                 if (!(stack.getItemMeta() instanceof PotionMeta potionMeta)) {
-                    // Ítem sin PotionMeta en slot de poción (ingrediente de addon) — extraer directamente.
                     if (tryPullFromInventory(blockMenu, root, accessor, brewerInventory, i) > 0) {
-                        return;
+                        return true;
                     }
                     continue;
                 }
                 if (Slimefun.getMinecraftVersion().isAtLeast(MinecraftVersion.MINECRAFT_1_20_5)) {
                     if (potionMeta.getBasePotionType() != PotionType.WATER
                             && tryPullFromInventory(blockMenu, root, accessor, brewerInventory, i) > 0) {
-                        return;
+                        return true;
                     }
                 } else {
                     PotionData bpd = potionMeta.getBasePotionData();
                     if (bpd != null && bpd.getType() != PotionType.WATER
                             && tryPullFromInventory(blockMenu, root, accessor, brewerInventory, i) > 0) {
-                        return;
+                        return true;
                     }
                 }
             }
         } else {
             for (int slot = 0; slot < inventory.getSize(); slot++) {
                 if (tryPullFromInventory(blockMenu, root, accessor, inventory, slot) > 0) {
-                    return;
+                    return true;
                 }
             }
         }
+        return flushed;
     }
 
-    private void flushOutputBuffer(@Nonnull BlockMenu blockMenu, @Nonnull NetworkRoot root, @Nonnull Location accessor) {
+    private boolean flushOutputBuffer(@Nonnull BlockMenu blockMenu, @Nonnull NetworkRoot root, @Nonnull Location accessor) {
         final ItemStack pending = blockMenu.getItemInSlot(OUTPUT_SLOT);
         if (pending == null || pending.getType() == Material.AIR) {
-            return;
+            return false;
         }
         if (NetworkTransportUtils.flushMenuSlotToNetwork(root, accessor, blockMenu, OUTPUT_SLOT) > 0) {
             blockMenu.markDirty();
+            return true;
         }
+        return false;
     }
 
     private int tryPullFromInventory(

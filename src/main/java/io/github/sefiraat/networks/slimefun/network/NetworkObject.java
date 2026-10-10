@@ -98,6 +98,9 @@ public abstract class NetworkObject extends SlimefunItem implements AdminDebugga
 
     protected void addToRegistry(@Nonnull Block block) {
         final Location location = block.getLocation();
+        if (NetworkStorage.getAllNetworkObjects().containsKey(location)) {
+            return;
+        }
         final NodeDefinition nodeDefinition = new NodeDefinition(nodeType);
         if (NetworkStorage.getAllNetworkObjects().putIfAbsent(location, nodeDefinition) == null) {
             /*

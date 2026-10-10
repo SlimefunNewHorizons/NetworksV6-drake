@@ -1,5 +1,7 @@
 package io.github.sefiraat.networks.slimefun.network;
 
+import org.bukkit.Location;
+
 import io.github.sefiraat.networks.NetworkStorage;
 import io.github.sefiraat.networks.network.NodeDefinition;
 import io.github.sefiraat.networks.network.NodeType;
@@ -53,24 +55,31 @@ public class NetworkPusher extends NetworkDirectional {
     protected void onTick(@Nullable BlockMenu blockMenu, @Nonnull Block block) {
         super.onTick(blockMenu, block);
         if (blockMenu != null) {
-            tryPushItem(blockMenu);
+            final Location loc = blockMenu.getLocation();
+            if (isIdleOnCooldown(loc)) {
+                return;
+            }
+            if (!tryPushItem(blockMenu)) {
+                deferIdle(loc);
+            }
         }
     }
 
-    private void tryPushItem(@Nonnull BlockMenu blockMenu) {
+    private boolean tryPushItem(@Nonnull BlockMenu blockMenu) {
         final NodeDefinition definition = NetworkStorage.getAllNetworkObjects().get(blockMenu.getLocation());
 
         if (definition == null || definition.getNode() == null) {
-            return;
+            return false;
         }
 
         final BlockFace direction = getCurrentDirection(blockMenu);
         final BlockMenu targetMenu = BlockStorage.getInventory(blockMenu.getBlock().getRelative(direction));
 
         if (targetMenu == null || !NetworkTransportUtils.isExternalInventory(targetMenu)) {
-            return;
+            return false;
         }
 
+        boolean anyMoved = false;
         for (int itemSlot : this.getItemSlots()) {
             final ItemStack testItem = blockMenu.getItemInSlot(itemSlot);
 
@@ -100,11 +109,15 @@ public class NetworkPusher extends NetworkDirectional {
                     definition.getNode().getRoot().addItemStack0(blockMenu.getLocation(), leftover);
                 }
 
-                if (insertedAmount > 0 && definition.getNode().getRoot().isDisplayParticles()) {
-                    showParticle(blockMenu.getLocation(), direction);
+                if (insertedAmount > 0) {
+                    anyMoved = true;
+                    if (definition.getNode().getRoot().isDisplayParticles()) {
+                        showParticle(blockMenu.getLocation(), direction);
+                    }
                 }
             }
         }
+        return anyMoved;
     }
 
     private int getInsertionCapacity(@Nonnull BlockMenu targetMenu, @Nonnull int[] slots,

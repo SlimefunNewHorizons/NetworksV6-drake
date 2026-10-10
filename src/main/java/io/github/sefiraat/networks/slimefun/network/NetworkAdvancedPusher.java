@@ -1,5 +1,7 @@
 package io.github.sefiraat.networks.slimefun.network;
 
+import org.bukkit.Location;
+
 import io.github.sefiraat.networks.NetworkStorage;
 import io.github.sefiraat.networks.network.NodeDefinition;
 import io.github.sefiraat.networks.network.NodeType;
@@ -50,13 +52,18 @@ public final class NetworkAdvancedPusher extends NetworkDirectional {
         if (menu == null) {
             return;
         }
-        NodeDefinition definition = NetworkStorage.getAllNetworkObjects().get(menu.getLocation());
+        final Location loc = menu.getLocation();
+        if (isIdleOnCooldown(loc)) {
+            return;
+        }
+        NodeDefinition definition = NetworkStorage.getAllNetworkObjects().get(loc);
         if (definition == null || definition.getNode() == null) {
             return;
         }
         BlockFace direction = getCurrentDirection(menu);
         BlockMenu target = BlockStorage.getInventory(block.getRelative(direction));
         if (!NetworkTransportUtils.isExternalInventory(target)) {
+            deferIdle(loc);
             return;
         }
 
@@ -73,14 +80,14 @@ public final class NetworkAdvancedPusher extends NetworkDirectional {
                 continue;
             }
             ItemStack withdrawn = definition.getNode().getRoot().getItemStack0(
-                menu.getLocation(), new ItemRequest(request, capacity)
+                loc, new ItemRequest(request, capacity)
             );
             if (withdrawn == null) {
                 continue;
             }
             int before = withdrawn.getAmount();
             boolean transferred = NetworkTransportUtils.pushIntoMenuOrReturn(
-                definition.getNode().getRoot(), menu.getLocation(), target, withdrawn,
+                definition.getNode().getRoot(), loc, target, withdrawn,
                 NetworkTransportUtils.getTransportSlots(target, ItemTransportFlow.INSERT, request)
             );
             // Count the requested batch conservatively. A partial insertion consumes
@@ -89,9 +96,13 @@ public final class NetworkAdvancedPusher extends NetworkDirectional {
                 moved += before;
             }
         }
-        if (moved > 0 && definition.getNode().getRoot().isDisplayParticles()) {
-            target.markDirty();
-            showParticle(menu.getLocation(), direction);
+        if (moved > 0) {
+            if (definition.getNode().getRoot().isDisplayParticles()) {
+                target.markDirty();
+                showParticle(loc, direction);
+            }
+        } else {
+            deferIdle(loc);
         }
     }
 

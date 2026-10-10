@@ -1,5 +1,7 @@
 package io.github.sefiraat.networks.slimefun.network;
 
+import org.bukkit.Location;
+
 import com.bgsoftware.wildchests.api.WildChestsAPI;
 import io.github.sefiraat.networks.NetworkStorage;
 import io.github.sefiraat.networks.Networks;
@@ -52,15 +54,21 @@ public class NetworkVanillaPusher extends NetworkDirectional {
     protected void onTick(@Nullable BlockMenu blockMenu, @Nonnull Block block) {
         super.onTick(blockMenu, block);
         if (blockMenu != null) {
-            tryPushItem(blockMenu);
+            final Location loc = blockMenu.getLocation();
+            if (isIdleOnCooldown(loc)) {
+                return;
+            }
+            if (!tryPushItem(blockMenu)) {
+                deferIdle(loc);
+            }
         }
     }
 
-    private void tryPushItem(@Nonnull BlockMenu blockMenu) {
+    private boolean tryPushItem(@Nonnull BlockMenu blockMenu) {
         final NodeDefinition definition = NetworkStorage.getAllNetworkObjects().get(blockMenu.getLocation());
 
         if (definition == null || definition.getNode() == null) {
-            return;
+            return false;
         }
 
         final BlockFace direction = getCurrentDirection(blockMenu);
@@ -68,40 +76,30 @@ public class NetworkVanillaPusher extends NetworkDirectional {
         final Block targetBlock = block.getRelative(direction);
         final String owner = BlockStorage.getLocationInfo(block.getLocation(), OWNER_KEY);
         if (owner == null) {
-            return;
+            return false;
         }
         final UUID uuid;
         try {
             uuid = UUID.fromString(owner);
         } catch (IllegalArgumentException e) {
-            return;
+            return false;
         }
         // Cacheado unos segundos: esta comprobacion consulta a WorldGuard y se repetia en cada
         // tick de cada nodo para responder casi siempre lo mismo.
         if (!io.github.sefiraat.networks.utils.OwnerAccessCache.canInteract(uuid, targetBlock)) {
-            return;
+            return false;
         }
 
-        /*
-        CraftBlock cb = (CraftBlock) block;
-        net.minecraft.world.level.block.state.BlockState nms = cb.getNMS();
-        net.minecraft.world.level.block.Block nmsBlock = nms.getBlock();
-
-        if (!(nms.getBlock() instanceof AbstractChestBlock<?> c)) {
-            return;
-        }
-
-         */
         BlockState state = BlockStateRefreshListener.getFreshState(targetBlock);
         if (!(state instanceof InventoryHolder holder)) {
-            return;
+            return false;
         }
         Inventory inv = holder.getInventory();
 
         final ItemStack stack = blockMenu.getItemInSlot(INPUT_SLOT);
 
         if (stack == null || stack.getType() == Material.AIR) {
-            return;
+            return false;
         }
 
         final int before = stack.getAmount();
@@ -126,7 +124,8 @@ public class NetworkVanillaPusher extends NetworkDirectional {
             }
         }
 
-        if (stack.getAmount() < before) {
+        boolean moved = stack.getAmount() < before;
+        if (moved) {
             if (holder instanceof org.bukkit.block.DoubleChest doubleChest) {
                 if (doubleChest.getLeftSide() instanceof org.bukkit.block.BlockState left) {
                     left.update(true, false);
@@ -142,6 +141,7 @@ public class NetworkVanillaPusher extends NetworkDirectional {
         if (stack.getAmount() <= 0) {
             blockMenu.replaceExistingItem(INPUT_SLOT, null);
         }
+        return moved;
     }
 
     private void handleFurnace(@Nonnull ItemStack stack, @Nonnull FurnaceInventory furnace) {

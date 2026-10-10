@@ -1,5 +1,7 @@
 package io.github.sefiraat.networks.slimefun.network;
 
+import org.bukkit.Location;
+
 import io.github.sefiraat.networks.NetworkStorage;
 import io.github.sefiraat.networks.network.NodeDefinition;
 import io.github.sefiraat.networks.network.NodeType;
@@ -35,7 +37,11 @@ public final class NetworkAdvancedGrabber extends NetworkDirectional {
         if (menu == null) {
             return;
         }
-        NodeDefinition definition = NetworkStorage.getAllNetworkObjects().get(menu.getLocation());
+        final Location loc = menu.getLocation();
+        if (isIdleOnCooldown(loc)) {
+            return;
+        }
+        NodeDefinition definition = NetworkStorage.getAllNetworkObjects().get(loc);
         if (definition == null || definition.getNode() == null) {
             return;
         }
@@ -43,6 +49,7 @@ public final class NetworkAdvancedGrabber extends NetworkDirectional {
         BlockFace direction = getCurrentDirection(menu);
         BlockMenu target = BlockStorage.getInventory(block.getRelative(direction));
         if (!NetworkTransportUtils.isExternalInventory(target)) {
+            deferIdle(loc);
             return;
         }
 
@@ -52,15 +59,19 @@ public final class NetworkAdvancedGrabber extends NetworkDirectional {
             if (source == null || source.getType() == Material.AIR) {
                 continue;
             }
-            moved += NetworkTransportUtils.pullIntoNetwork(definition.getNode().getRoot(), menu.getLocation(), target, slot);
+            moved += NetworkTransportUtils.pullIntoNetwork(definition.getNode().getRoot(), loc, target, slot);
             if (moved >= TRANSFER_LIMIT) {
                 break;
             }
         }
 
-        if (moved > 0 && definition.getNode().getRoot().isDisplayParticles()) {
-            target.markDirty();
-            showParticle(menu.getLocation(), direction);
+        if (moved > 0) {
+            if (definition.getNode().getRoot().isDisplayParticles()) {
+                target.markDirty();
+                showParticle(loc, direction);
+            }
+        } else {
+            deferIdle(loc);
         }
     }
 
