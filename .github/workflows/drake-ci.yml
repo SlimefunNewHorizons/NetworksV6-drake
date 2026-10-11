@@ -27,14 +27,6 @@ jobs:
       - name: Checkout NetworksV6-drake
         uses: actions/checkout@v7
 
-      # Java 25 solo para paperCompat: la API de Paper 26.x esta compilada para Java 25.
-      - name: Set up Java 25
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: "25"
-
-      # El ultimo setup-java define JAVA_HOME: Gradle y el jar del plugin usan Java 21.
       - name: Set up Java 21
         uses: actions/setup-java@v6
         with:
@@ -46,12 +38,6 @@ jobs:
 
       - name: Tests unitarios
         run: ./gradlew --no-daemon test
-
-      - name: Compatibilidad con Paper 1.21.11, 26.1 y 26.2
-        run: >-
-          ./gradlew --no-daemon paperCompat
-          -Porg.gradle.java.installations.fromEnv=JAVA_HOME_21_X64,JAVA_HOME_25_X64
-          -Porg.gradle.java.installations.auto-download=false
 
       - name: Empaquetar plugin
         run: ./gradlew --no-daemon shadowJar
@@ -71,3 +57,47 @@ jobs:
           name: NetworksV6-Drake-SNAPSHOT
           path: build/libs/NetworksV6-Drake-*.jar
           if-no-files-found: error
+
+  # Un job por version de la API de Paper: cada una aparece como un check propio en el PR y en el
+  # commit, y si falla una se ve cual. fail-fast desactivado para que una version rota no cancele
+  # las demas.
+  paper-compat:
+    name: Paper API ${{ matrix.paper }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - paper: "1.21.11"
+            task: compileAgainstPaper1_21_11
+          - paper: "26.1"
+            task: compileAgainstPaper26_1
+          - paper: "26.2"
+            task: compileAgainstPaper26_2
+    steps:
+      - name: Checkout NetworksV6-drake
+        uses: actions/checkout@v7
+
+      # Java 25: la API de Paper 26.x esta compilada para Java 25 y la tarea compila con ese JDK.
+      - name: Set up Java 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      # El ultimo setup-java define JAVA_HOME: Gradle corre con Java 21, como el build normal.
+      - name: Set up Java 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Compilar contra paper-api ${{ matrix.paper }}
+        run: >-
+          ./gradlew --no-daemon ${{ matrix.task }}
+          -Porg.gradle.java.installations.fromEnv=JAVA_HOME_21_X64,JAVA_HOME_25_X64
+          -Porg.gradle.java.installations.auto-download=false
