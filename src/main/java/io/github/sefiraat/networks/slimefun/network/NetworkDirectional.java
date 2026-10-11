@@ -53,11 +53,11 @@ import javax.annotation.OverridingMethodsMustInvokeSuper;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.ArrayList;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @SuppressWarnings({"deprecation", "DuplicatedCode"})
 public abstract class NetworkDirectional extends NetworkObject {
@@ -73,7 +73,34 @@ public abstract class NetworkDirectional extends NetworkObject {
     private static final int UP_SLOT = 15;
     private static final int DOWN_SLOT = 33;
     private static final Set<Location> locked = new HashSet<>();
-    protected static final Map<Location, BlockFace> SELECTED_DIRECTION_MAP = new HashMap<>();
+    // Concurrente: se lee y se escribe desde los tickers async (getCurrentDirection, getSelectedFace).
+    protected static final Map<Location, BlockFace> SELECTED_DIRECTION_MAP = new ConcurrentHashMap<>();
+
+    /*
+     * Paneles de direccion ya construidos.
+     *
+     * updateGui rehacia los 6 paneles en cada tick mientras alguien tenia el menu abierto: por panel
+     * dos CustomItemStack, copia del meta, limpieza del PDC, lecturas de Lang y String.format. Un panel
+     * solo depende de la cara, del item o material vecino y de si es la cara activa, asi que se
+     * construye una vez. replaceExistingItem copia el item al inventario (Inventory.setItem), asi que
+     * reutilizar la misma instancia es seguro.
+     */
+    private static final Map<PaneKey, ItemStack> PANE_CACHE = new ConcurrentHashMap<>();
+
+    private record PaneKey(Object target, BlockFace face, boolean active) {
+    }
+
+    @NotNull
+    private static ItemStack cachedPane(@NotNull BlockFace face, @NotNull SlimefunItem item, boolean active) {
+        return PANE_CACHE.computeIfAbsent(
+            new PaneKey(item.getId(), face, active), k -> getDirectionalSlotPane(face, item, active));
+    }
+
+    @NotNull
+    private static ItemStack cachedPane(@NotNull BlockFace face, @NotNull Material material, boolean active) {
+        return PANE_CACHE.computeIfAbsent(
+            new PaneKey(material, face, active), k -> getDirectionalSlotPane(face, material, active));
+    }
 
     private final @NotNull ItemSetting<Integer> tickRate;
 
@@ -214,17 +241,17 @@ public abstract class NetworkDirectional extends NetworkObject {
             if (slimefunItem != null) {
                 switch (blockFace) {
                     case NORTH -> blockMenu.replaceExistingItem(
-                        getNorthSlot(), getDirectionalSlotPane(blockFace, slimefunItem, blockFace == direction));
+                        getNorthSlot(), cachedPane(blockFace, slimefunItem, blockFace == direction));
                     case SOUTH -> blockMenu.replaceExistingItem(
-                        getSouthSlot(), getDirectionalSlotPane(blockFace, slimefunItem, blockFace == direction));
+                        getSouthSlot(), cachedPane(blockFace, slimefunItem, blockFace == direction));
                     case EAST -> blockMenu.replaceExistingItem(
-                        getEastSlot(), getDirectionalSlotPane(blockFace, slimefunItem, blockFace == direction));
+                        getEastSlot(), cachedPane(blockFace, slimefunItem, blockFace == direction));
                     case WEST -> blockMenu.replaceExistingItem(
-                        getWestSlot(), getDirectionalSlotPane(blockFace, slimefunItem, blockFace == direction));
+                        getWestSlot(), cachedPane(blockFace, slimefunItem, blockFace == direction));
                     case UP -> blockMenu.replaceExistingItem(
-                        getUpSlot(), getDirectionalSlotPane(blockFace, slimefunItem, blockFace == direction));
+                        getUpSlot(), cachedPane(blockFace, slimefunItem, blockFace == direction));
                     case DOWN -> blockMenu.replaceExistingItem(
-                        getDownSlot(), getDirectionalSlotPane(blockFace, slimefunItem, blockFace == direction));
+                        getDownSlot(), cachedPane(blockFace, slimefunItem, blockFace == direction));
                     default -> throw new IllegalStateException(String.format(
                         Lang.getString("messages.unsupported-operation.directional.unexcepted_value"), blockFace));
                 }
@@ -232,17 +259,17 @@ public abstract class NetworkDirectional extends NetworkObject {
                 final Material material = block.getType();
                 switch (blockFace) {
                     case NORTH -> blockMenu.replaceExistingItem(
-                        getNorthSlot(), getDirectionalSlotPane(blockFace, material, blockFace == direction));
+                        getNorthSlot(), cachedPane(blockFace, material, blockFace == direction));
                     case SOUTH -> blockMenu.replaceExistingItem(
-                        getSouthSlot(), getDirectionalSlotPane(blockFace, material, blockFace == direction));
+                        getSouthSlot(), cachedPane(blockFace, material, blockFace == direction));
                     case EAST -> blockMenu.replaceExistingItem(
-                        getEastSlot(), getDirectionalSlotPane(blockFace, material, blockFace == direction));
+                        getEastSlot(), cachedPane(blockFace, material, blockFace == direction));
                     case WEST -> blockMenu.replaceExistingItem(
-                        getWestSlot(), getDirectionalSlotPane(blockFace, material, blockFace == direction));
+                        getWestSlot(), cachedPane(blockFace, material, blockFace == direction));
                     case UP -> blockMenu.replaceExistingItem(
-                        getUpSlot(), getDirectionalSlotPane(blockFace, material, blockFace == direction));
+                        getUpSlot(), cachedPane(blockFace, material, blockFace == direction));
                     case DOWN -> blockMenu.replaceExistingItem(
-                        getDownSlot(), getDirectionalSlotPane(blockFace, material, blockFace == direction));
+                        getDownSlot(), cachedPane(blockFace, material, blockFace == direction));
                     default -> throw new IllegalStateException(String.format(
                         Lang.getString("messages.unsupported-operation.directional.unexcepted_value"), blockFace));
                 }

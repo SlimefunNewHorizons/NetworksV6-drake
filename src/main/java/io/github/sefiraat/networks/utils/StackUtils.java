@@ -40,8 +40,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @SuppressWarnings("deprecation")
 @UtilityClass
@@ -50,6 +52,7 @@ public class StackUtils {
     private static final MinecraftVersion MC_VERSION = Networks.getInstance().getMCVersion();
     public static final boolean IS_1_20_5 = MC_VERSION.isAtLeast(MinecraftVersion.V1_20_5);
     public static final boolean IS_1_21 = MC_VERSION.isAtLeast(MinecraftVersion.V1_21);
+    private static final Map<Material, Boolean> BLACKLISTED_TYPES = new ConcurrentHashMap<>();
 
     @NotNull
     public static ItemStack getAsQuantity(@Nullable ItemStack itemStack, int amount) {
@@ -120,16 +123,48 @@ public class StackUtils {
     }
 
     /**
+     * Compara dos caches. Ninguno de los dos lados copia su ItemMeta: ambos lo tienen guardado.
+     * Usar esta version cuando se compara un mismo item contra muchos (barrels, drawers, cells).
+     */
+    public static boolean itemsMatch(@NotNull ItemStackCache cache, @NotNull ItemStackCache other) {
+        return itemsMatch(cache, other, false, false, true);
+    }
+
+    public static boolean itemsMatch(
+        @NotNull ItemStackCache cache,
+        @NotNull ItemStackCache other,
+        boolean checkLore,
+        boolean checkAmount,
+        boolean checkCustomModelId) {
+        return matches(cache, other.getItemStack(), other, checkLore, checkAmount, checkCustomModelId);
+    }
+
+    /**
      * Checks if items match each other, checks go in order from lightest to heaviest
      *
      * @param cache     The cached {@link ItemStack} to compare against
      * @param itemStack The {@link ItemStack} being evaluated
      * @return True if items match
      */
-    @SuppressWarnings("UnstableApiUsage")
     public static boolean itemsMatch(
         @NotNull ItemStackCache cache,
         @Nullable ItemStack itemStack,
+        boolean checkLore,
+        boolean checkAmount,
+        boolean checkCustomModelId) {
+        return matches(cache, itemStack, null, checkLore, checkAmount, checkCustomModelId);
+    }
+
+    /*
+     * itemStack.getItemMeta() devuelve una copia nueva del meta en cada llamada, y es lo mas caro de
+     * toda la comparacion. Si el lado evaluado ya viene en un cache (itemCache), se usa su meta
+     * guardado en vez de copiarlo otra vez.
+     */
+    @SuppressWarnings("UnstableApiUsage")
+    private static boolean matches(
+        @NotNull ItemStackCache cache,
+        @Nullable ItemStack itemStack,
+        @Nullable ItemStackCache itemCache,
         boolean checkLore,
         boolean checkAmount,
         boolean checkCustomModelId) {
@@ -148,7 +183,8 @@ public class StackUtils {
             return false;
         }
 
-        if (isBlacklisted(itemStack) || isBlacklisted(cache.getItemStack())) {
+        // isBlacklisted solo depende del tipo, y los dos tipos ya son iguales: basta con uno.
+        if (isBlacklisted(itemStack)) {
             return false;
         }
 
@@ -162,7 +198,7 @@ public class StackUtils {
         }
 
         // Now we need to compare meta's directly - cache is already out, but let's fetch the 2nd meta also
-        final ItemMeta itemMeta = itemStack.getItemMeta();
+        final ItemMeta itemMeta = itemCache != null ? itemCache.getItemMeta() : itemStack.getItemMeta();
         final ItemMeta cachedMeta = cache.getItemMeta();
 
         if (itemMeta == null || cachedMeta == null) {
@@ -673,11 +709,22 @@ public class StackUtils {
         return false;
     }
 
+    /*
+     * Se llama en cada comparacion de items y solo depende del Material. Antes repetia la consulta
+     * al tag y un material.name().endsWith(...) cada vez; ahora el resultado queda guardado por tipo.
+     */
     public static boolean isBlacklisted(@NotNull ItemStack itemStack) {
-        return itemStack.getType() == Material.AIR
-            || itemStack.getType().getMaxDurability() < 0
-            || Tag.SHULKER_BOXES.isTagged(itemStack.getType())
-            || isBundle(itemStack.getType());
+        final Material type = itemStack.getType();
+        final Boolean cached = BLACKLISTED_TYPES.get(type);
+        if (cached != null) {
+            return cached;
+        }
+        final boolean blacklisted = type == Material.AIR
+            || type.getMaxDurability() < 0
+            || Tag.SHULKER_BOXES.isTagged(type)
+            || isBundle(type);
+        BLACKLISTED_TYPES.put(type, blacklisted);
+        return blacklisted;
     }
 
     private static boolean isBundle(@NotNull Material material) {

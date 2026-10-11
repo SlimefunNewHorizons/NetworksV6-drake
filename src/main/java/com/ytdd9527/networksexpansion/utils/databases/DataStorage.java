@@ -3,6 +3,7 @@ package com.ytdd9527.networksexpansion.utils.databases;
 import com.balugaq.netex.api.data.StorageUnitData;
 import com.balugaq.netex.api.enums.StorageUnitType;
 import com.balugaq.netex.utils.Lang;
+import com.ytdd9527.networksexpansion.implementation.machines.unit.NetworksDrawer;
 import io.github.sefiraat.networks.Networks;
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
@@ -10,7 +11,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -22,7 +24,15 @@ public class DataStorage {
     private static final DataSource dataSource = Networks.getDataSource();
     private static final Map<Integer, Boolean> state = new ConcurrentHashMap<>(4096);
     private static final Map<Integer, Optional<StorageUnitData>> cache = new ConcurrentHashMap<>(4096);
-    private static @NotNull Map<Integer, Map<Integer, Integer>> changes = new ConcurrentHashMap<>(4096);
+    /*
+     * containerId -> (itemId -> cantidad pendiente de guardar).
+     *
+     * Antes el mapa interno era un HashMap y el guardado cambiaba el mapa entero por uno nuevo. Un
+     * ticker async podia quedarse con el viejo y escribir en el mientras se recorria: cambios perdidos
+     * o ConcurrentModificationException. Ahora los mapas internos son concurrentes y el guardado
+     * saca cada cantidad con remove(): lo que llegue despues queda para el guardado siguiente.
+     */
+    private static final @NotNull Map<Integer, Map<Integer, Integer>> changes = new ConcurrentHashMap<>(4096);
 
     public static void requestStorageData(int id) {
         // First check if loading or already loaded
@@ -105,19 +115,25 @@ public class DataStorage {
 
     // This will not update the current data cache!
     public static void setStoredAmount(int containerId, int itemId, int amount) {
-        Map<Integer, Integer> items = changes.computeIfAbsent(containerId, k -> new HashMap<>());
+        Map<Integer, Integer> items = changes.computeIfAbsent(containerId, k -> new ConcurrentHashMap<>());
         items.put(itemId, amount);
     }
 
     public static void saveAmountChange() {
         Networks.getInstance().getLogger().info(Lang.getString("messages.data-saving.saving-drawer"));
-        Map<Integer, Map<Integer, Integer>> lastChanges = changes;
-        changes = new ConcurrentHashMap<>();
-        for (Map.Entry<Integer, Map<Integer, Integer>> each : lastChanges.entrySet()) {
-            for (Map.Entry<Integer, Integer> eachItem : each.getValue().entrySet()) {
-                dataSource.updateItemAmount(each.getKey(), eachItem.getKey(), eachItem.getValue());
+        final List<int[]> pending = new ArrayList<>();
+        for (Map.Entry<Integer, Map<Integer, Integer>> each : changes.entrySet()) {
+            final int containerId = each.getKey();
+            final Map<Integer, Integer> items = each.getValue();
+            for (Integer itemId : items.keySet()) {
+                final Integer amount = items.remove(itemId);
+                if (amount != null) {
+                    pending.add(new int[]{containerId, itemId, amount});
+                }
             }
         }
+        // Una sola transaccion para todo el lote, y los drawers bloqueados se resuelven una vez.
+        dataSource.updateItemAmounts(pending, NetworksDrawer.getLockedContainerIds());
         Networks.getInstance().getLogger().info(Lang.getString("messages.data-saving.saved-drawer"));
         Networks.getInstance().debug("Task amount: " + Networks.getQueryQueue().getTaskAmount());
     }

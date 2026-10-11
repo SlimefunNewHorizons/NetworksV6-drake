@@ -24,10 +24,11 @@ import org.jetbrains.annotations.Nullable;
 import javax.annotation.OverridingMethodsMustInvokeSuper;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 public interface HangingBlock {
@@ -42,7 +43,8 @@ public interface HangingBlock {
         }
     };
     Map<String, HangingBlock> REGISTRY = new HashMap<>();
-    Map<Location, Map<BlockFace, HangingBlock>> hangingBlocks = new HashMap<>();
+    // Concurrente: NetworkObject lo consulta desde el ticker async (hasHangingBlocks).
+    Map<Location, Map<BlockFace, HangingBlock>> hangingBlocks = new ConcurrentHashMap<>();
     String BS_NORTH = "netex-hanging-north";
     String BS_SOUTH = "netex-hanging-south";
     String BS_EAST = "netex-hanging-east";
@@ -74,9 +76,20 @@ public interface HangingBlock {
             itemFrame.getPersistentDataContainer().get(NETEX_HANGING_KEY, PersistentDataType.STRING));
     }
 
+    /**
+     * Indica si el bloque tiene algun hanging block. Es una consulta barata, pensada para no encolar
+     * en el hilo principal los nodos que no tienen ninguno (que son casi todos).
+     */
+    static boolean hasHangingBlocks(@NotNull Location attachon) {
+        return hangingBlocks.containsKey(attachon);
+    }
+
     static void tickHangingBlocks(@NotNull Block attachon) {
         Location loc = attachon.getLocation();
         Map<BlockFace, HangingBlock> hs = getHangingBlocks(loc);
+        if (hs.isEmpty()) {
+            return;
+        }
         getHangingBlocks(loc, hs.keySet()).forEach((attachSide, itemFrame) -> {
             try {
                 hs.get(attachSide).onTick(loc, attachSide, itemFrame);
@@ -150,7 +163,9 @@ public interface HangingBlock {
 
     @NotNull
     static Map<BlockFace, HangingBlock> getHangingBlocks(Location attachon) {
-        return Optional.ofNullable(hangingBlocks.get(attachon)).orElse(new HashMap<>());
+        // Sin crear un HashMap vacio por llamada: los que llaman solo recorren el resultado.
+        final Map<BlockFace, HangingBlock> e = hangingBlocks.get(attachon);
+        return e == null ? Collections.emptyMap() : e;
     }
 
     @Nullable

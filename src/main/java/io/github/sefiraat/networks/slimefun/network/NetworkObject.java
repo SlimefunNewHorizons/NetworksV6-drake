@@ -156,7 +156,15 @@ public abstract class NetworkObject extends SpecialSlimefunItem implements Admin
     }
 
     protected void tickHangingBlocks(@NotNull Block block) {
-        scheduledHangingTick.add(block.getLocation());
+        /*
+         * Antes se encolaba todo nodo en cada tick, y el hilo principal hacia getBlock() y creaba
+         * dos HashMap por cada uno aunque no tuviera ningun item frame. Ahora solo entran los que
+         * de verdad tienen hanging blocks.
+         */
+        final Location location = block.getLocation();
+        if (HangingBlock.hasHangingBlocks(location)) {
+            scheduledHangingTick.add(location);
+        }
     }
 
     @OverridingMethodsMustInvokeSuper

@@ -100,7 +100,9 @@ public class NetworkNode {
 
             // Loop through all possible locations
             for (BlockFace face : VALID_FACES) {
-                final Location testLocation = currentNode.nodePosition.clone().add(face.getDirection());
+                // getModX/Y/Z en vez de getDirection(): getDirection() crea un Vector nuevo por cara.
+                final Location testLocation =
+                    currentNode.nodePosition.clone().add(face.getModX(), face.getModY(), face.getModZ());
                 final NodeDefinition testDefinition = NetworkStorage.getNode(testLocation);
 
                 if (testDefinition == null) {
@@ -137,8 +139,13 @@ public class NetworkNode {
                     currentNode.addChild(networkNode);
 
                     nodeStack.push(networkNode);
+                    /*
+                     * Aqui tambien se llamaba a NetworkStorage.registerNode(testLocation, testDefinition).
+                     * Sobraba: testDefinition salio de NetworkStorage.getNode(testLocation), asi que ya
+                     * esta registrado con esa misma clave. Repetirlo creaba un ChunkPosition y hacia un
+                     * computeIfAbsent por nodo y por tick: con miles de nodos, miles de objetos por tick.
+                     */
                     testDefinition.setNode(networkNode);
-                    NetworkStorage.registerNode(testLocation, testDefinition);
                 }
             }
         }

@@ -67,14 +67,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 @SuppressWarnings({"deprecation", "DuplicatedCode"})
 public class NetworksDrawer extends SpecialSlimefunItem implements DistinctiveItem, ModellableItem {
     private static final Map<Location, StorageUnitData> storages = new HashMap<>();
     private static final Map<Location, QuickTransferMode> quickTransferModes = new HashMap<>();
-    private static final Set<Location> locked = new HashSet<>();
-    private static final Set<Location> voidExcesses = new HashSet<>();
+    // Concurrentes: se leen desde los tickers async y desde el guardado async de la base de datos.
+    private static final Set<Location> locked = ConcurrentHashMap.newKeySet();
+    private static final Set<Location> voidExcesses = ConcurrentHashMap.newKeySet();
     private static final String KEY_UUID = "display-uuid";
     private static final int[] DISPLAY_SLOTS = {
         10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 42, 43,
@@ -367,6 +369,25 @@ public class NetworksDrawer extends SpecialSlimefunItem implements DistinctiveIt
             }
         }
         return false;
+    }
+
+    /**
+     * Ids de contenedor de todos los drawers bloqueados, calculados de una sola pasada.
+     *
+     * isLocked(int) recorre todos los drawers bloqueados y lee su containerId cada vez. El guardado
+     * lo llamaba por cada cantidad cambiada: cambios x drawers bloqueados lecturas. Con este conjunto
+     * el guardado hace una sola pasada.
+     */
+    @NotNull
+    public static Set<Integer> getLockedContainerIds() {
+        final Set<Integer> ids = new HashSet<>();
+        for (Location l : locked) {
+            final int id = getContainerId(l);
+            if (id != -1) {
+                ids.add(id);
+            }
+        }
+        return ids;
     }
 
     public static boolean isVoidExcess(Location l) {
@@ -961,7 +982,8 @@ public class NetworksDrawer extends SpecialSlimefunItem implements DistinctiveIt
             return;
         }
         if (!isLocked(l)) {
-            for (ItemContainer each : data.getStoredItems()) {
+            // Sin copiar la lista en cada tick: los valores de un ConcurrentHashMap se pueden recorrer y borrar a la vez.
+            for (ItemContainer each : data.getStoredItemsDirectly()) {
                 if (each.getAmount() == 0) {
                     data.removeItem(each.getId());
                 }

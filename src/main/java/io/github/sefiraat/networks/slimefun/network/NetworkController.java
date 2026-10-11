@@ -63,28 +63,31 @@ public class NetworkController extends NetworkObject {
 
             @Override
             public void tick(@NotNull Block block, SlimefunItem item, @NotNull SlimefunBlockData data) {
-                if (!firstTickMap.containsKey(block.getLocation())) {
+                // Block.getLocation() crea un Location nuevo en cada llamada; aqui se pedia 8 veces.
+                final Location location = block.getLocation();
+                if (!firstTickMap.containsKey(location)) {
                     onFirstTick(block, data);
-                    firstTickMap.put(block.getLocation(), true);
+                    firstTickMap.put(location, true);
                 }
 
                 addToRegistry(block);
                 NetworkRoot networkRoot = new NetworkRoot(
-                    block.getLocation(),
+                    location,
                     NodeType.CONTROLLER,
                     maxNodes.getValue(),
-                    recordFlow.getOrDefault(block.getLocation(), false),
-                    records.get(block.getLocation()));
+                    recordFlow.getOrDefault(location, false),
+                    records.get(location));
                 networkRoot.addAllChildren();
+                networkRoot.markReady();
 
-                boolean crayon = CRAYONS.contains(block.getLocation());
+                boolean crayon = CRAYONS.contains(location);
                 if (crayon) {
                     networkRoot.setDisplayParticles(true);
                 }
 
-                NETWORKS.put(block.getLocation(), networkRoot);
+                NETWORKS.put(location, networkRoot);
 
-                NodeDefinition definition = NetworkStorage.getNode(block.getLocation());
+                NodeDefinition definition = NetworkStorage.getNode(location);
                 if (definition != null) {
                     definition.setNode(networkRoot);
                 }

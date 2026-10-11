@@ -27,9 +27,11 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Base64;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -53,10 +55,11 @@ public class DataSource {
         createTable();
         logger = Networks.getInstance().getLogger();
         // Load item ids
-        itemMap = new HashMap<>();
+        // Concurrente: getItemId escribe en el y la carga de contenedores lo lee desde otro hilo.
+        itemMap = new ConcurrentHashMap<>();
         loadItemMap();
         // Load environment variables
-        environment = new HashMap<>();
+        environment = new ConcurrentHashMap<>();
         loadEnvironment();
 
         init();
@@ -143,7 +146,10 @@ public class DataSource {
         return re;
     }
 
-    int getItemId(@NotNull ItemStack item) {
+    /*
+     * synchronized: nextItemId++ no es atomico y esto se llama desde varios tickers async a la vez.
+     */
+    synchronized int getItemId(@NotNull ItemStack item) {
         ItemStack clone = item.clone();
         ItemStackWrapper wrapper = ItemStackWrapper.wrap(item);
         for (Map.Entry<Integer, ItemStack> each : itemMap.entrySet()) {
@@ -154,6 +160,12 @@ public class DataSource {
 
         // Not found, return new one and
         int re = nextItemId++;
+        /*
+         * El item nuevo no se guardaba en itemMap: solo se cargaba al arrancar. El mismo item nuevo
+         * en otro drawer no se encontraba, recibia otro id y otra fila en ITEM_STACK, y asi cada vez
+         * hasta reiniciar. La tabla crecia sin limite y la busqueda de arriba era cada vez mas larga.
+         */
+        itemMap.put(re, clone);
 
         Networks.getQueryQueue().scheduleUpdate(() -> {
             try (Statement stat = conn.createStatement()) {
@@ -192,6 +204,79 @@ public class DataSource {
         String sql =
             "INSERT INTO " + DataTables.ITEM_STORED + " VALUES(" + containerId + "," + itemId + "," + amount + ");";
         scheduleExecute(sql, Lang.getString("messages.data-saving.error-occurred-when-updating-storage"));
+    }
+
+    /**
+     * Guarda de una vez un lote de cantidades: {containerId, itemId, amount} por fila.
+     *
+     * Antes cada cantidad era una tarea con su propio UPDATE y, como la conexion esta en autocommit,
+     * cada una era una transaccion de SQLite con su escritura a disco. Aqui todo el lote va en una
+     * sola transaccion. Si el lote falla se deshace y se repite sentencia por sentencia, como antes,
+     * para que un error en una fila no se lleve las demas.
+     */
+    void updateItemAmounts(@NotNull List<int[]> changes, @NotNull Set<Integer> lockedContainers) {
+        if (changes.isEmpty()) {
+            return;
+        }
+
+        final List<String> sqls = new ArrayList<>(changes.size());
+        for (int[] change : changes) {
+            final int containerId = change[0];
+            final int itemId = change[1];
+            final int amount = change[2];
+            final boolean delete = lockedContainers.contains(containerId) ? amount < 0 : amount <= 0;
+            sqls.add(delete ? deleteStoredItemSql(containerId, itemId) : updateItemAmountSql(containerId, itemId, amount));
+        }
+
+        final String errorMsg = Lang.getString("messages.data-saving.error-occurred-when-updating-storage");
+        Networks.getQueryQueue().scheduleUpdate(() -> {
+            try {
+                conn.setAutoCommit(false);
+                try (Statement stat = conn.createStatement()) {
+                    for (String sql : sqls) {
+                        stat.addBatch(sql);
+                    }
+                    stat.executeBatch();
+                }
+                conn.commit();
+            } catch (SQLException batchError) {
+                try {
+                    conn.rollback();
+                } catch (SQLException rollbackError) {
+                    Debug.trace(rollbackError);
+                }
+                try {
+                    conn.setAutoCommit(true);
+                } catch (SQLException e) {
+                    Debug.trace(e);
+                }
+                for (String sql : sqls) {
+                    try (Statement stat = conn.createStatement()) {
+                        stat.execute(sql);
+                    } catch (SQLException e) {
+                        logger.warning(errorMsg);
+                        Debug.trace(e);
+                    }
+                }
+            } finally {
+                try {
+                    conn.setAutoCommit(true);
+                } catch (SQLException e) {
+                    Debug.trace(e);
+                }
+            }
+            return true;
+        });
+    }
+
+    private static @NotNull String updateItemAmountSql(int containerId, int itemId, int amount) {
+        return "UPDATE " + DataTables.ITEM_STORED + " SET Amount = " + amount + " WHERE ContainerID = "
+            + containerId + " AND ItemID = " + itemId + ";";
+    }
+
+    private static @NotNull String deleteStoredItemSql(int containerId, int itemId) {
+        return "DELETE FROM " + DataTables.ITEM_STORED + " WHERE ContainerID = " + containerId + " AND ItemID = "
+            + itemId + ";";
     }
 
     void updateItemAmount(int containerId, int itemId, int amount) {

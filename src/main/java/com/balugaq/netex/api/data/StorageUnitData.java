@@ -5,6 +5,7 @@ import com.ytdd9527.networksexpansion.implementation.machines.unit.NetworksDrawe
 import com.ytdd9527.networksexpansion.utils.databases.DataStorage;
 import io.github.sefiraat.networks.network.NetworkRoot;
 import io.github.sefiraat.networks.network.stackcaches.ItemRequest;
+import io.github.sefiraat.networks.network.stackcaches.ItemStackCache;
 import io.github.sefiraat.networks.utils.StackUtils;
 import lombok.Getter;
 import lombok.ToString;
@@ -17,7 +18,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -101,31 +102,39 @@ public class StorageUnitData {
         this.storedItems = storedItems; //!! DO NOT USE `new` keyword to create a new ConcurrentHashMap, this will cause data lose!!
     }
 
+    /*
+     * Historial de accesos por accesor. La clave interna es el id del item (antes era la posicion en
+     * una copia de la lista, que cambiaba al agregar o quitar items).
+     *
+     * Igual que en NetworkRoot: antes cada lectura creaba un ConcurrentHashMap con getOrDefault aunque
+     * la clave existiera, y el mapa de observacion era un HashMap usado desde varios hilos. Ahora el
+     * mapa solo se crea al escribir, y siempre es concurrente.
+     */
     public static void addPersistentAccessHistory(Location location, Integer accessLocation) {
-        Map<Integer, Integer> locations = persistentAccessHistory.getOrDefault(location, new ConcurrentHashMap<>());
-        locations.put(accessLocation, 0);
-        persistentAccessHistory.put(location, locations);
+        persistentAccessHistory.computeIfAbsent(location, k -> new ConcurrentHashMap<>()).put(accessLocation, 0);
     }
 
     public static void addCacheMiss(Location location, Integer accessLocation) {
-        Map<Integer, Integer> locations = persistentAccessHistory.getOrDefault(location, new ConcurrentHashMap<>());
+        Map<Integer, Integer> locations =
+            persistentAccessHistory.computeIfAbsent(location, k -> new ConcurrentHashMap<>());
         int value = locations.getOrDefault(accessLocation, 0) + 1;
         if (value > NetworkRoot.cacheMissThreshold) {
-            removePersistentAccessHistory(location, accessLocation);
+            locations.remove(accessLocation);
             return;
         }
         locations.put(accessLocation, value);
-        persistentAccessHistory.put(location, locations);
     }
 
     public static void minusCacheMiss(Location location, Integer accessLocation) {
-        Map<Integer, Integer> locations = persistentAccessHistory.getOrDefault(location, new ConcurrentHashMap<>());
-        int value = Math.max(locations.getOrDefault(accessLocation, 0) - 1, 0);
-        locations.put(accessLocation, value);
+        Map<Integer, Integer> locations = persistentAccessHistory.get(location);
+        if (locations != null) {
+            locations.computeIfPresent(accessLocation, (k, v) -> Math.max(v - 1, 0));
+        }
     }
 
     public static Map<Integer, Integer> getPersistentAccessHistory(Location location) {
-        return persistentAccessHistory.getOrDefault(location, new ConcurrentHashMap<>());
+        Map<Integer, Integer> locations = persistentAccessHistory.get(location);
+        return locations == null ? Collections.emptyMap() : locations;
     }
 
     public static void removePersistentAccessHistory(Location location) {
@@ -133,25 +142,27 @@ public class StorageUnitData {
     }
 
     public static void removePersistentAccessHistory(Location location, Integer accessLocation) {
-        Map<Integer, Integer> locations = persistentAccessHistory.getOrDefault(location, new ConcurrentHashMap<>());
-        locations.remove(accessLocation);
-        persistentAccessHistory.put(location, locations);
+        Map<Integer, Integer> locations = persistentAccessHistory.get(location);
+        if (locations != null) {
+            locations.remove(accessLocation);
+        }
     }
 
     public static void addCountObservingAccessHistory(Location location, Integer accessLocation) {
-        Map<Integer, Integer> locations = observingAccessHistory.getOrDefault(location, new HashMap<>());
+        Map<Integer, Integer> locations =
+            observingAccessHistory.computeIfAbsent(location, k -> new ConcurrentHashMap<>());
         Integer count = locations.getOrDefault(accessLocation, 0);
         if (count >= NetworkRoot.persistentThreshold) {
-            removeCountObservingAccessHistory(location, accessLocation);
+            locations.remove(accessLocation);
             addPersistentAccessHistory(location, accessLocation);
             return;
         }
         locations.put(accessLocation, count + 1);
-        observingAccessHistory.put(location, locations);
     }
 
     public static Map<Integer, Integer> getCountObservingAccessHistory(Location location) {
-        return observingAccessHistory.getOrDefault(location, new ConcurrentHashMap<>());
+        Map<Integer, Integer> locations = observingAccessHistory.get(location);
+        return locations == null ? Collections.emptyMap() : locations;
     }
 
     public static void removeCountObservingAccessHistory(Location location) {
@@ -159,9 +170,10 @@ public class StorageUnitData {
     }
 
     public static void removeCountObservingAccessHistory(Location location, Integer accessLocation) {
-        Map<Integer, Integer> locations = observingAccessHistory.getOrDefault(location, new ConcurrentHashMap<>());
-        locations.remove(accessLocation);
-        observingAccessHistory.put(location, locations);
+        Map<Integer, Integer> locations = observingAccessHistory.get(location);
+        if (locations != null) {
+            locations.remove(accessLocation);
+        }
     }
 
     public static boolean isBlacklisted(@NotNull ItemStack itemStack) {
@@ -436,30 +448,34 @@ public class StorageUnitData {
 
         int amount = itemRequest.getAmount();
 
-        List<ItemContainer> stored = getStoredItems();
-
+        /*
+         * Antes se copiaba storedItems a una lista nueva en cada peticion (getStoredItems()) y el
+         * cache guardaba la posicion del item en esa copia. Esa posicion cambia cada vez que entra o
+         * sale un item, asi que el cache acertaba poco. Ahora el cache guarda el id del item, que no
+         * cambia, y se busca directo en storedItems sin copiar nada.
+         */
         Map<Integer, Integer> m = getPersistentAccessHistory(accessor);
-        if (m != null) {
+        if (!m.isEmpty()) {
             // Netex - Cache start
             boolean found = false;
             List<Integer> misses = new ArrayList<>();
             // Netex - Cache end
-            for (Integer i : m.keySet()) {
-                // Netex - Cache start
-                if (i >= stored.size()) {
-                    removePersistentAccessHistory(accessor, i);
+            for (Integer itemId : m.keySet()) {
+                ItemContainer itemContainer = storedItems.get(itemId);
+                if (itemContainer == null) {
+                    // Netex - Cache start
+                    misses.add(itemId);
+                    // Netex - Cache end
                     continue;
                 }
-                // Netex - Cache end
 
-                ItemContainer itemContainer = stored.get(i);
                 int containerAmount = itemContainer.getAmount();
-                if (StackUtils.itemsMatch(itemRequest, itemContainer.getSampleDirectly())) {
+                if (StackUtils.itemsMatch(itemRequest, itemContainer)) {
                     int take = Math.min(amount, containerAmount);
                     if (take <= 0) {
                         if (!contentLocked) {
                             removeItem(itemContainer.getId());
-                            removePersistentAccessHistory(accessor, i);
+                            removePersistentAccessHistory(accessor, itemId);
                         }
                         break;
                     }
@@ -467,7 +483,7 @@ public class StorageUnitData {
 
                     DataStorage.setStoredAmount(id, itemContainer.getId(), itemContainer.getAmount());
                     // Netex - Cache start
-                    minusCacheMiss(accessor, i);
+                    minusCacheMiss(accessor, itemId);
                     found = true;
                     // Netex - Cache end
 
@@ -476,24 +492,24 @@ public class StorageUnitData {
                     return clone;
                 } else {
                     // Netex - Cache start
-                    misses.add(i);
+                    misses.add(itemId);
                     // Netex - Cache end
                 }
             }
 
             // Netex - Cache start
+            // Antes minusCacheMiss: las entradas que fallaban nunca salian. Ahora igual que en la entrada.
             if (!found) {
                 for (int miss : misses) {
-                    minusCacheMiss(accessor, miss);
+                    addCacheMiss(accessor, miss);
                 }
             }
             // Netex - Cache end
         }
 
-        for (int i = 0; i < stored.size(); i++) {
-            ItemContainer itemContainer = stored.get(i);
+        for (ItemContainer itemContainer : storedItems.values()) {
             int containerAmount = itemContainer.getAmount();
-            if (StackUtils.itemsMatch(itemRequest, itemContainer.getSampleDirectly())) {
+            if (StackUtils.itemsMatch(itemRequest, itemContainer)) {
                 int take = Math.min(amount, containerAmount);
                 if (take <= 0) {
                     if (!contentLocked) {
@@ -505,7 +521,7 @@ public class StorageUnitData {
                 itemContainer.removeAmount(take);
 
                 // Netex - Cache start
-                addCountObservingAccessHistory(accessor, i);
+                addCountObservingAccessHistory(accessor, itemContainer.getId());
                 // Netex - Cache end
                 DataStorage.setStoredAmount(id, itemContainer.getId(), itemContainer.getAmount());
 
@@ -585,22 +601,24 @@ public class StorageUnitData {
         Location accessor, @NotNull ItemStack item, int amount, boolean contentLocked, boolean force) {
         int add = 0;
         boolean isVoidExcess = NetworksDrawer.isVoidExcess(getLastLocation());
-        List<ItemContainer> stored = getStoredItems();
+        // Cache del item entrante: su ItemMeta se copia una vez y no por cada item del drawer.
+        final ItemStackCache itemCache = new ItemStackCache(item);
 
+        // Cache por id de item y sin copiar storedItems: ver requestItem0.
         Map<Integer, Integer> m = getPersistentAccessHistory(accessor);
-        if (m != null) {
+        if (!m.isEmpty()) {
             boolean found = false;
             List<Integer> misses = new ArrayList<>();
-            for (Integer i : m.keySet()) {
-                // Netex - Cache start
-                if (i >= stored.size()) {
-                    removePersistentAccessHistory(accessor, i);
+            for (Integer itemId : m.keySet()) {
+                ItemContainer each = storedItems.get(itemId);
+                if (each == null) {
+                    // Netex - Cache start
+                    misses.add(itemId);
+                    // Netex - Cache end
                     continue;
                 }
-                // Netex - Cache end
 
-                ItemContainer each = stored.get(i);
-                if (each.isSimilar(item)) {
+                if (StackUtils.itemsMatch(each, itemCache)) {
                     // Found existing one, add amount
                     int raw = sizeType.getEachMaxSize() - each.getAmount();
                     if (raw < 0) {
@@ -622,27 +640,26 @@ public class StorageUnitData {
                     }
 
                     // Netex - Cache start
-                    minusCacheMiss(accessor, i);
+                    minusCacheMiss(accessor, itemId);
                     found = true;
                     // Netex - Cache end
                     return add;
                 } else {
                     // Netex - Cache start
-                    misses.add(i);
+                    misses.add(itemId);
                     // Netex - Cache end
                 }
             }
 
             if (!found) {
-                for (int i : misses) {
-                    addCacheMiss(accessor, i);
+                for (int miss : misses) {
+                    addCacheMiss(accessor, miss);
                 }
             }
         }
 
-        for (int i = 0; i < stored.size(); i++) {
-            ItemContainer each = stored.get(i);
-            if (each.isSimilar(item)) {
+        for (ItemContainer each : storedItems.values()) {
+            if (StackUtils.itemsMatch(each, itemCache)) {
                 // Found existing one, add amount
                 int raw = sizeType.getEachMaxSize() - each.getAmount();
                 if (raw < 0) {
@@ -664,7 +681,7 @@ public class StorageUnitData {
                 }
 
                 // Netex - Cache start
-                addCountObservingAccessHistory(accessor, i);
+                addCountObservingAccessHistory(accessor, each.getId());
                 // Netex - Cache end
                 return add;
             }

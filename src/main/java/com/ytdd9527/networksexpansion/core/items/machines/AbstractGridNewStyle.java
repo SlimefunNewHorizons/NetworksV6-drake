@@ -1,5 +1,6 @@
 package com.ytdd9527.networksexpansion.core.items.machines;
 
+import com.balugaq.netex.utils.NameFilter;
 import com.balugaq.jeg.api.groups.SearchGroup;
 import com.balugaq.jeg.api.objects.enums.FilterType;
 import com.balugaq.netex.api.algorithm.Sorters;
@@ -9,8 +10,6 @@ import com.balugaq.netex.api.interfaces.BaseGrid;
 import com.balugaq.netex.api.keybind.Keybindable;
 import com.balugaq.netex.utils.InventoryUtil;
 import com.balugaq.netex.utils.Lang;
-import com.github.houbb.pinyin.constant.enums.PinyinStyleEnum;
-import com.github.houbb.pinyin.util.PinyinHelper;
 import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunBlockData;
 import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import com.ytdd9527.networksexpansion.implementation.machines.networks.advanced.SmartNetworkCraftingGridNewStyle;
@@ -413,7 +412,8 @@ public abstract class AbstractGridNewStyle extends AbstractGrid implements Keybi
             } catch (Exception ignored) {
             }
         }
-        var result = networkRoot.getAllNetworkItemsLongTypeView().entrySet().stream()
+        // Orden con claves precalculadas: ver Sorters.sortItemEntries.
+        var result = Sorters.sortItemEntries(networkRoot.getAllNetworkItemsLongTypeView().entrySet().stream()
             .filter(entry -> {
                 if (searchTerm == null) {
                     return true;
@@ -430,18 +430,9 @@ public abstract class AbstractGridNewStyle extends AbstractGrid implements Keybi
                 }
                 String name = TextUtil.stripColor(
                     TextoItems.nombreVisible(itemStack).toLowerCase(Locale.ROOT));
-                if (searchTerm.matches("^[a-zA-Z]+$")) {
-                    final String pinyinName = PinyinHelper.toPinyin(name, PinyinStyleEnum.INPUT, "");
-                    final String pinyinFirstLetter = PinyinHelper.toPinyin(name, PinyinStyleEnum.FIRST_LETTER, "");
-                    return name.contains(searchTerm)
-                        || pinyinName.contains(searchTerm)
-                        || pinyinFirstLetter.contains(searchTerm);
-                } else {
-                    return name.contains(searchTerm);
-                }
-            })
-            .sorted(SORT_MAP.get(cache.getSortOrder()))
-            .toList();
+                // Sin regex por item y con el pinyin guardado: ver NameFilter.
+                return NameFilter.matches(name, searchTerm);
+            }), SORT_MAP.get(cache.getSortOrder()));
         cache.setEntriesCache(result);
         return result;
     }

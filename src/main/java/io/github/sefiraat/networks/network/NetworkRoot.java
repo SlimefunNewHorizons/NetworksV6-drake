@@ -21,6 +21,7 @@ import io.github.sefiraat.networks.network.barrel.InfinityBarrel;
 import io.github.sefiraat.networks.network.barrel.NetworkStorage;
 import io.github.sefiraat.networks.network.stackcaches.BarrelIdentity;
 import io.github.sefiraat.networks.network.stackcaches.ItemRequest;
+import io.github.sefiraat.networks.network.stackcaches.ItemStackCache;
 import io.github.sefiraat.networks.network.stackcaches.QuantumCache;
 import io.github.sefiraat.networks.slimefun.network.NetworkCell;
 import io.github.sefiraat.networks.slimefun.network.NetworkDirectional;
@@ -45,6 +46,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -195,6 +198,11 @@ public class NetworkRoot extends NetworkNode {
     private @Nullable Map<Location, StorageUnitData> mapInputAbleCargoStorageUnits = null;
     private @Nullable Map<Location, StorageUnitData> mapOutputAbleCargoStorageUnits = null;
     private Map<ItemStack, Long> allItemsView = null;
+    private volatile boolean ready = false;
+    private volatile @Nullable Set<BlockMenu> cellMenus = null;
+    private volatile @Nullable Set<BlockMenu> crafterMenus = null;
+    private volatile @Nullable Set<BlockMenu> greedyBlockMenus = null;
+    private volatile @Nullable Set<BlockMenu> advancedGreedyBlockMenus = null;
 
     @Setter
     @Getter
@@ -223,31 +231,39 @@ public class NetworkRoot extends NetworkNode {
         registerNode(location, type);
     }
 
+    /*
+     * Historial de accesos.
+     *
+     * Antes cada lectura hacia getOrDefault(location, new ConcurrentHashMap<>()): se creaba un mapa
+     * nuevo en cada peticion aunque la clave existiera, y en las lecturas sin historial se devolvia
+     * un mapa recien creado solo para recorrerlo vacio. Esto corre en cada getItemStack0 y
+     * addItemStack0, asi que era basura constante. Ahora solo se crea el mapa al escribir.
+     */
     public static void addPersistentAccessHistory(Location location, Location accessLocation) {
-        Map<Location, Integer> locations = persistentAccessHistory.getOrDefault(location, new ConcurrentHashMap<>());
-        locations.put(accessLocation, 0);
-        persistentAccessHistory.put(location, locations);
+        persistentAccessHistory.computeIfAbsent(location, k -> new ConcurrentHashMap<>()).put(accessLocation, 0);
     }
 
     public static void addCacheMiss(Location location, Location accessLocation) {
-        Map<Location, Integer> locations = persistentAccessHistory.getOrDefault(location, new ConcurrentHashMap<>());
+        Map<Location, Integer> locations =
+            persistentAccessHistory.computeIfAbsent(location, k -> new ConcurrentHashMap<>());
         int value = locations.getOrDefault(accessLocation, 0) + 1;
         if (value > cacheMissThreshold) {
-            removePersistentAccessHistory(location, accessLocation);
+            locations.remove(accessLocation);
             return;
         }
         locations.put(accessLocation, value);
-        persistentAccessHistory.put(location, locations);
     }
 
     public static void minusCacheMiss(Location location, Location accessLocation) {
-        Map<Location, Integer> locations = persistentAccessHistory.getOrDefault(location, new ConcurrentHashMap<>());
-        int value = Math.max(locations.getOrDefault(accessLocation, 0) - 1, 0);
-        locations.put(accessLocation, value);
+        Map<Location, Integer> locations = persistentAccessHistory.get(location);
+        if (locations != null) {
+            locations.computeIfPresent(accessLocation, (k, v) -> Math.max(v - 1, 0));
+        }
     }
 
     public static Map<Location, Integer> getPersistentAccessHistory(Location location) {
-        return persistentAccessHistory.getOrDefault(location, new ConcurrentHashMap<>());
+        Map<Location, Integer> locations = persistentAccessHistory.get(location);
+        return locations == null ? Collections.emptyMap() : locations;
     }
 
     public static void removePersistentAccessHistory(Location location) {
@@ -255,25 +271,27 @@ public class NetworkRoot extends NetworkNode {
     }
 
     public static void removePersistentAccessHistory(Location location, Location accessLocation) {
-        Map<Location, Integer> locations = persistentAccessHistory.getOrDefault(location, new ConcurrentHashMap<>());
-        locations.remove(accessLocation);
-        persistentAccessHistory.put(location, locations);
+        Map<Location, Integer> locations = persistentAccessHistory.get(location);
+        if (locations != null) {
+            locations.remove(accessLocation);
+        }
     }
 
     public static void addCountObservingAccessHistory(Location location, Location accessLocation) {
-        Map<Location, Integer> locations = observingAccessHistory.getOrDefault(location, new ConcurrentHashMap<>());
+        Map<Location, Integer> locations =
+            observingAccessHistory.computeIfAbsent(location, k -> new ConcurrentHashMap<>());
         Integer count = locations.getOrDefault(accessLocation, 0);
         if (count >= persistentThreshold) {
-            removeCountObservingAccessHistory(location, accessLocation);
+            locations.remove(accessLocation);
             addPersistentAccessHistory(location, accessLocation);
             return;
         }
         locations.put(accessLocation, count + 1);
-        observingAccessHistory.put(location, locations);
     }
 
     public static Map<Location, Integer> getCountObservingAccessHistory(Location location) {
-        return observingAccessHistory.getOrDefault(location, new ConcurrentHashMap<>());
+        Map<Location, Integer> locations = observingAccessHistory.get(location);
+        return locations == null ? Collections.emptyMap() : locations;
     }
 
     public static void removeCountObservingAccessHistory(Location location) {
@@ -281,9 +299,10 @@ public class NetworkRoot extends NetworkNode {
     }
 
     public static void removeCountObservingAccessHistory(Location location, Location accessLocation) {
-        Map<Location, Integer> locations = observingAccessHistory.getOrDefault(location, new ConcurrentHashMap<>());
-        locations.remove(accessLocation);
-        observingAccessHistory.put(location, locations);
+        Map<Location, Integer> locations = observingAccessHistory.get(location);
+        if (locations != null) {
+            locations.remove(accessLocation);
+        }
     }
 
     @Nullable
@@ -579,7 +598,7 @@ public class NetworkRoot extends NetworkNode {
         // Cargo storage units
         Map<StorageUnitData, Location> cacheMap = getOutputAbleCargoStorageUnitDatas();
         for (StorageUnitData cache : cacheMap.keySet()) {
-            for (ItemContainer itemContainer : cache.getStoredItems()) {
+            for (ItemContainer itemContainer : cache.getStoredItemsDirectly()) {
                 final Long currentAmount = itemStacks.get(itemContainer.getSample());
                 long newAmount;
                 if (currentAmount == null) {
@@ -667,7 +686,6 @@ public class NetworkRoot extends NetworkNode {
         }
 
         for (BlockMenu blockMenu : getCellMenus()) {
-            if (!isRealCell(blockMenu)) continue;
             for (int slot : CELL_AVAILABLE_SLOTS) {
                 final ItemStack itemStack = blockMenu.getItemInSlot(slot);
                 if (itemStack != null && itemStack.getType() != Material.AIR) {
@@ -818,52 +836,89 @@ public class NetworkRoot extends NetworkNode {
         return dataSet;
     }
 
+    /**
+     * Marca que el recorrido del controlador termino y la lista de nodos ya no cambia.
+     * Desde aqui los menus de cells, crafters y greedy blocks se pueden guardar en cache.
+     */
+    public void markReady() {
+        this.ready = true;
+    }
+
+    /*
+     * Menus de cells, crafters y greedy blocks.
+     *
+     * Antes cada llamada creaba un HashSet y consultaba StorageCacheUtils.getMenu por cada
+     * ubicacion, y se llama en cada getItemStack0, addItemStack0 y getAmount: un grabber de linea
+     * lo repetia cientos de veces por tick. El NetworkRoot vive un solo tick (el controlador lo
+     * rehace), asi que se guarda el resultado igual que ya se hacia con los barrels.
+     *
+     * Solo se guarda despues de markReady: durante el BFS los nodos ya apuntan a este root y una
+     * maquina podria pedir los menus con la lista a medio llenar.
+     *
+     * Las cells se filtran aqui con isRealCell, una vez, en vez de en cada bucle que las recorre.
+     */
     @NotNull
     public Set<BlockMenu> getCellMenus() {
-        final Set<BlockMenu> menus = new HashSet<>();
-        for (Location cellLocation : this.cells) {
-            BlockMenu menu = StorageCacheUtils.getMenu(cellLocation);
-            if (menu != null) {
-                menus.add(menu);
-            }
+        final Set<BlockMenu> cached = this.cellMenus;
+        if (cached != null) {
+            return cached;
+        }
+        final Set<BlockMenu> menus = resolveMenus(this.cells, true);
+        if (this.ready) {
+            this.cellMenus = menus;
         }
         return menus;
     }
 
     @NotNull
     public Set<BlockMenu> getCrafterOutputs() {
-        final Set<BlockMenu> menus = new HashSet<>();
-        for (Location location : this.crafters) {
-            BlockMenu menu = StorageCacheUtils.getMenu(location);
-            if (menu != null) {
-                menus.add(menu);
-            }
+        final Set<BlockMenu> cached = this.crafterMenus;
+        if (cached != null) {
+            return cached;
+        }
+        final Set<BlockMenu> menus = resolveMenus(this.crafters, false);
+        if (this.ready) {
+            this.crafterMenus = menus;
         }
         return menus;
     }
 
     @NotNull
     public Set<BlockMenu> getGreedyBlockMenus() {
-        final Set<BlockMenu> menus = new HashSet<>();
-        for (Location location : this.greedyBlocks) {
-            BlockMenu menu = StorageCacheUtils.getMenu(location);
-            if (menu != null) {
-                menus.add(menu);
-            }
+        final Set<BlockMenu> cached = this.greedyBlockMenus;
+        if (cached != null) {
+            return cached;
+        }
+        final Set<BlockMenu> menus = resolveMenus(this.greedyBlocks, false);
+        if (this.ready) {
+            this.greedyBlockMenus = menus;
         }
         return menus;
     }
 
     @NotNull
     public Set<BlockMenu> getAdvancedGreedyBlockMenus() {
+        final Set<BlockMenu> cached = this.advancedGreedyBlockMenus;
+        if (cached != null) {
+            return cached;
+        }
+        final Set<BlockMenu> menus = resolveMenus(this.advancedGreedyBlocks, false);
+        if (this.ready) {
+            this.advancedGreedyBlockMenus = menus;
+        }
+        return menus;
+    }
+
+    @NotNull
+    private static Set<BlockMenu> resolveMenus(@NotNull Set<Location> locations, boolean onlyRealCells) {
         final Set<BlockMenu> menus = new HashSet<>();
-        for (Location location : this.advancedGreedyBlocks) {
+        for (Location location : locations) {
             BlockMenu menu = StorageCacheUtils.getMenu(location);
-            if (menu != null) {
+            if (menu != null && (!onlyRealCells || isRealCell(menu))) {
                 menus.add(menu);
             }
         }
-        return menus;
+        return Collections.unmodifiableSet(menus);
     }
 
     @Warning(
@@ -883,7 +938,7 @@ public class NetworkRoot extends NetworkNode {
 
             final ItemStack itemStack = barrelIdentity.getItemStack();
 
-            if (itemStack == null || !StackUtils.itemsMatch(request, itemStack)) {
+            if (itemStack == null || !StackUtils.itemsMatch(request, barrelIdentity)) {
                 continue;
             }
 
@@ -931,7 +986,6 @@ public class NetworkRoot extends NetworkNode {
 
         // Cells
         for (BlockMenu blockMenu : getCellMenus()) {
-            if (!isRealCell(blockMenu)) continue;
             for (int slot : CELL_AVAILABLE_SLOTS) {
                 final ItemStack itemStack = blockMenu.getItemInSlot(slot);
                 if (itemStack == null
@@ -1071,7 +1125,7 @@ public class NetworkRoot extends NetworkNode {
         for (BarrelIdentity barrelIdentity : getOutputAbleBarrels()) {
             final ItemStack itemStack = barrelIdentity.getItemStack();
 
-            if (itemStack == null || !StackUtils.itemsMatch(request, itemStack)) {
+            if (itemStack == null || !StackUtils.itemsMatch(request, barrelIdentity)) {
                 continue;
             }
 
@@ -1111,9 +1165,9 @@ public class NetworkRoot extends NetworkNode {
 
         Map<StorageUnitData, Location> cacheMap = getOutputAbleCargoStorageUnitDatas();
         for (StorageUnitData cache : cacheMap.keySet()) {
-            final List<ItemContainer> storedItems = cache.getStoredItems();
+            final Collection<ItemContainer> storedItems = cache.getStoredItemsDirectly();
             for (ItemContainer itemContainer : storedItems) {
-                if (!StackUtils.itemsMatch(request, itemContainer.getItemStack())) {
+                if (!StackUtils.itemsMatch(request, itemContainer)) {
                     continue;
                 }
 
@@ -1166,7 +1220,6 @@ public class NetworkRoot extends NetworkNode {
 
         // Cells
         for (BlockMenu blockMenu : getCellMenus()) {
-            if (!isRealCell(blockMenu)) continue;
             for (int slot : CELL_AVAILABLE_SLOTS) {
                 final ItemStack itemStack = blockMenu.getItemInSlot(slot);
                 if (itemStack == null
@@ -1188,12 +1241,14 @@ public class NetworkRoot extends NetworkNode {
     }
 
     public int getAmount(@NotNull ItemStack itemStack) {
+        // Un solo cache del item buscado: su ItemMeta se copia una vez, no en cada comparacion.
+        final ItemStackCache target = new ItemStackCache(itemStack);
         long totalAmount = 0;
         for (BlockMenu blockMenu : getAdvancedGreedyBlockMenus()) {
             int[] slots = blockMenu.getPreset().getSlotsAccessedByItemTransport(ItemTransportFlow.WITHDRAW);
             for (int slot : slots) {
                 final ItemStack inputSlotItem = blockMenu.getItemInSlot(slot);
-                if (inputSlotItem != null && StackUtils.itemsMatch(inputSlotItem, itemStack)) {
+                if (inputSlotItem != null && StackUtils.itemsMatch(target, inputSlotItem)) {
                     totalAmount += inputSlotItem.getAmount();
                 }
             }
@@ -1202,13 +1257,13 @@ public class NetworkRoot extends NetworkNode {
         for (BlockMenu blockMenu : getGreedyBlockMenus()) {
             int[] slots = blockMenu.getPreset().getSlotsAccessedByItemTransport(ItemTransportFlow.WITHDRAW);
             ItemStack inputSlotItem = blockMenu.getItemInSlot(slots[0]);
-            if (inputSlotItem != null && StackUtils.itemsMatch(inputSlotItem, itemStack)) {
+            if (inputSlotItem != null && StackUtils.itemsMatch(target, inputSlotItem)) {
                 totalAmount += inputSlotItem.getAmount();
             }
         }
 
         for (BarrelIdentity barrelIdentity : getOutputAbleBarrels()) {
-            if (StackUtils.itemsMatch(barrelIdentity, itemStack)) {
+            if (StackUtils.itemsMatch(barrelIdentity, target)) {
                 totalAmount += barrelIdentity.getAmount();
                 if (barrelIdentity instanceof InfinityBarrel) {
                     totalAmount -= 2;
@@ -1217,19 +1272,18 @@ public class NetworkRoot extends NetworkNode {
         }
         Map<StorageUnitData, Location> cacheMap = getOutputAbleCargoStorageUnitDatas();
         for (StorageUnitData cache : cacheMap.keySet()) {
-            final List<ItemContainer> storedItems = cache.getStoredItems();
+            final Collection<ItemContainer> storedItems = cache.getStoredItemsDirectly();
             for (ItemContainer itemContainer : storedItems) {
-                if (StackUtils.itemsMatch(itemContainer, itemStack)) {
+                if (StackUtils.itemsMatch(itemContainer, target)) {
                     totalAmount += itemContainer.getAmount();
                 }
             }
         }
 
         for (BlockMenu blockMenu : getCellMenus()) {
-            if (!isRealCell(blockMenu)) continue;
             for (int slot : CELL_AVAILABLE_SLOTS) {
                 final ItemStack cellItem = blockMenu.getItemInSlot(slot);
-                if (cellItem != null && StackUtils.itemsMatch(cellItem, itemStack)) {
+                if (cellItem != null && StackUtils.itemsMatch(target, cellItem)) {
                     totalAmount += cellItem.getAmount();
                 }
             }
@@ -1243,15 +1297,20 @@ public class NetworkRoot extends NetworkNode {
 
     public @NotNull HashMap<ItemStack, Long> getAmount(@NotNull Set<ItemStack> itemStacks) {
         HashMap<ItemStack, Long> totalAmounts = new HashMap<>();
+        // Caches de los items buscados, creados una vez: evita copiar su ItemMeta en cada comparacion.
+        final List<ItemStackCache> targets = new ArrayList<>(itemStacks.size());
+        for (ItemStack itemStack : itemStacks) {
+            targets.add(new ItemStackCache(itemStack));
+        }
+
         for (BlockMenu menu : getAdvancedGreedyBlockMenus()) {
             int[] slots = menu.getPreset().getSlotsAccessedByItemTransport(ItemTransportFlow.WITHDRAW);
             for (int slot : slots) {
                 final ItemStack inputSlotItem = menu.getItemInSlot(slot);
                 if (inputSlotItem != null) {
-                    for (ItemStack itemStack : itemStacks) {
-                        if (StackUtils.itemsMatch(inputSlotItem, itemStack)) {
-                            totalAmounts.put(
-                                itemStack, totalAmounts.getOrDefault(itemStack, 0L) + inputSlotItem.getAmount());
+                    for (ItemStackCache target : targets) {
+                        if (StackUtils.itemsMatch(target, inputSlotItem)) {
+                            totalAmounts.merge(target.getItemStack(), (long) inputSlotItem.getAmount(), Long::sum);
                         }
                     }
                 }
@@ -1262,48 +1321,44 @@ public class NetworkRoot extends NetworkNode {
             int[] slots = blockMenu.getPreset().getSlotsAccessedByItemTransport(ItemTransportFlow.WITHDRAW);
             ItemStack inputSlotItem = blockMenu.getItemInSlot(slots[0]);
             if (inputSlotItem != null) {
-                for (ItemStack itemStack : itemStacks) {
-                    if (StackUtils.itemsMatch(inputSlotItem, itemStack)) {
-                        totalAmounts.put(
-                            itemStack, totalAmounts.getOrDefault(itemStack, 0L) + inputSlotItem.getAmount());
+                for (ItemStackCache target : targets) {
+                    if (StackUtils.itemsMatch(target, inputSlotItem)) {
+                        totalAmounts.merge(target.getItemStack(), (long) inputSlotItem.getAmount(), Long::sum);
                     }
                 }
             }
         }
 
         for (BarrelIdentity barrelIdentity : getOutputAbleBarrels()) {
-            for (ItemStack itemStack : itemStacks) {
-                if (StackUtils.itemsMatch(barrelIdentity, itemStack)) {
+            for (ItemStackCache target : targets) {
+                if (StackUtils.itemsMatch(barrelIdentity, target)) {
                     long totalAmount = barrelIdentity.getAmount();
                     if (barrelIdentity instanceof InfinityBarrel) {
                         totalAmount -= 2;
                     }
-                    totalAmounts.put(itemStack, totalAmounts.getOrDefault(itemStack, 0L) + totalAmount);
+                    totalAmounts.merge(target.getItemStack(), totalAmount, Long::sum);
                 }
             }
         }
         Map<StorageUnitData, Location> cacheMap = getOutputAbleCargoStorageUnitDatas();
         for (StorageUnitData cache : cacheMap.keySet()) {
-            final List<ItemContainer> storedItems = cache.getStoredItems();
+            final Collection<ItemContainer> storedItems = cache.getStoredItemsDirectly();
             for (ItemContainer itemContainer : storedItems) {
-                for (ItemStack itemStack : itemStacks) {
-                    if (StackUtils.itemsMatch(itemContainer, itemStack)) {
-                        long totalAmount = itemContainer.getAmount();
-                        totalAmounts.put(itemStack, totalAmounts.getOrDefault(itemStack, 0L) + totalAmount);
+                for (ItemStackCache target : targets) {
+                    if (StackUtils.itemsMatch(itemContainer, target)) {
+                        totalAmounts.merge(target.getItemStack(), (long) itemContainer.getAmount(), Long::sum);
                     }
                 }
             }
         }
 
         for (BlockMenu blockMenu : getCellMenus()) {
-            if (!isRealCell(blockMenu)) continue;
             for (int slot : CELL_AVAILABLE_SLOTS) {
                 final ItemStack cellItem = blockMenu.getItemInSlot(slot);
                 if (cellItem != null) {
-                    for (ItemStack itemStack : itemStacks) {
-                        if (StackUtils.itemsMatch(cellItem, itemStack)) {
-                            totalAmounts.put(
-                                itemStack, totalAmounts.getOrDefault(itemStack, 0L) + cellItem.getAmount());
+                    for (ItemStackCache target : targets) {
+                        if (StackUtils.itemsMatch(target, cellItem)) {
+                            totalAmounts.merge(target.getItemStack(), (long) cellItem.getAmount(), Long::sum);
                         }
                     }
                 }
@@ -1322,10 +1377,13 @@ public class NetworkRoot extends NetworkNode {
             return;
         }
 
+        // Cache del item entrante: su ItemMeta se copia una vez y no en cada barrel o greedy block.
+        final ItemStackCache incomingCache = new ItemStackCache(incoming);
+
         for (BlockMenu blockMenu : getAdvancedGreedyBlockMenus()) {
             final ItemStack template = blockMenu.getItemInSlot(AdvancedGreedyBlock.TEMPLATE_SLOT);
 
-            if (template == null || template.getType() == Material.AIR || !StackUtils.itemsMatch(incoming, template)) {
+            if (template == null || template.getType() == Material.AIR || !StackUtils.itemsMatch(incomingCache, template)) {
                 continue;
             }
 
@@ -1339,7 +1397,7 @@ public class NetworkRoot extends NetworkNode {
         for (BlockMenu blockMenu : getGreedyBlockMenus()) {
             final ItemStack template = blockMenu.getItemInSlot(NetworkGreedyBlock.TEMPLATE_SLOT);
 
-            if (template == null || template.getType() == Material.AIR || !StackUtils.itemsMatch(incoming, template)) {
+            if (template == null || template.getType() == Material.AIR || !StackUtils.itemsMatch(incomingCache, template)) {
                 continue;
             }
 
@@ -1351,7 +1409,7 @@ public class NetworkRoot extends NetworkNode {
 
         // Run for matching barrels
         for (BarrelIdentity barrelIdentity : getInputAbleBarrels()) {
-            if (StackUtils.itemsMatch(barrelIdentity, incoming)) {
+            if (StackUtils.itemsMatch(barrelIdentity, incomingCache)) {
                 barrelIdentity.depositItemStack(incoming);
 
                 // All distributed, can escape
@@ -1370,7 +1428,6 @@ public class NetworkRoot extends NetworkNode {
         }
 
         for (BlockMenu blockMenu : getCellMenus()) {
-            if (!isRealCell(blockMenu)) continue;
             blockMenu.markDirty();
             BlockMenuUtil.pushItem(blockMenu, incoming, CELL_AVAILABLE_SLOTS);
             if (incoming.getAmount() == 0) {
@@ -1882,7 +1939,7 @@ public class NetworkRoot extends NetworkNode {
         }
 
         Map<Location, Integer> m = getPersistentAccessHistory(accessor);
-        if (m != null) {
+        if (!m.isEmpty()) {
             // Netex - Cache start
             boolean found = false;
             List<Location> misses = new ArrayList<>();
@@ -1894,7 +1951,7 @@ public class NetworkRoot extends NetworkNode {
                     // <editor-fold desc="do barrel">
                     final ItemStack itemStack = barrelIdentity.getItemStack();
 
-                    if (itemStack == null || !StackUtils.itemsMatch(request, itemStack)) {
+                    if (itemStack == null || !StackUtils.itemsMatch(request, barrelIdentity)) {
                         // Netex - Cache start
                         misses.add(entry.getKey());
                         // Netex - Cache end
@@ -1980,9 +2037,14 @@ public class NetworkRoot extends NetworkNode {
             }
 
             // Netex - Cache start
+            /*
+             * Antes aqui se llamaba a minusCacheMiss, que solo baja el contador: una entrada que ya no
+             * servia nunca salia del cache y cada peticion la volvia a recorrer. Ahora se penaliza
+             * igual que en addItemStack0, y tras cacheMissThreshold fallos la entrada se borra.
+             */
             if (!found) {
                 for (Location miss : misses) {
-                    minusCacheMiss(accessor, miss);
+                    addCacheMiss(accessor, miss);
                 }
             }
             // Netex - Cache end
@@ -1993,7 +2055,7 @@ public class NetworkRoot extends NetworkNode {
             // <editor-fold desc="do barrel">
             final ItemStack itemStack = barrelIdentity.getItemStack();
 
-            if (itemStack == null || !StackUtils.itemsMatch(request, itemStack)) {
+            if (itemStack == null || !StackUtils.itemsMatch(request, barrelIdentity)) {
                 continue;
             }
 
@@ -2063,7 +2125,6 @@ public class NetworkRoot extends NetworkNode {
 
         // Cells
         for (BlockMenu blockMenu : getCellMenus()) {
-            if (!isRealCell(blockMenu)) continue;
             for (int slot : CELL_AVAILABLE_SLOTS) {
                 final ItemStack itemStack = blockMenu.getItemInSlot(slot);
                 if (itemStack == null
@@ -2243,6 +2304,9 @@ public class NetworkRoot extends NetworkNode {
             return;
         }
 
+        // Cache del item entrante: su ItemMeta se copia una vez y no en cada barrel o greedy block.
+        final ItemStackCache incomingCache = new ItemStackCache(incoming);
+
         ItemStack beforeItemStack = null;
         if (recordFlow && itemFlowRecord != null) {
             beforeItemStack = incoming.clone();
@@ -2251,7 +2315,7 @@ public class NetworkRoot extends NetworkNode {
         int before = incoming.getAmount();
 
         Map<Location, Integer> m = getPersistentAccessHistory(accessor);
-        if (m != null) {
+        if (!m.isEmpty()) {
             // Netex - Cache start
             boolean found = false;
             List<Location> misses = new ArrayList<>();
@@ -2260,7 +2324,7 @@ public class NetworkRoot extends NetworkNode {
                 BarrelIdentity barrelIdentity = accessInputAbleBarrel(entry.getKey());
                 if (barrelIdentity != null) {
                     // <editor-fold desc="do barrel">
-                    if (StackUtils.itemsMatch(barrelIdentity, incoming)) {
+                    if (StackUtils.itemsMatch(barrelIdentity, incomingCache)) {
                         // Netex - Cache start
                         minusCacheMiss(accessor, entry.getKey());
                         found = true;
@@ -2326,7 +2390,7 @@ public class NetworkRoot extends NetworkNode {
         for (BlockMenu blockMenu : getAdvancedGreedyBlockMenus()) {
             final ItemStack template = blockMenu.getItemInSlot(AdvancedGreedyBlock.TEMPLATE_SLOT);
 
-            if (template == null || template.getType() == Material.AIR || !StackUtils.itemsMatch(incoming, template)) {
+            if (template == null || template.getType() == Material.AIR || !StackUtils.itemsMatch(incomingCache, template)) {
                 continue;
             }
 
@@ -2346,7 +2410,7 @@ public class NetworkRoot extends NetworkNode {
         for (BlockMenu blockMenu : getGreedyBlockMenus()) {
             final ItemStack template = blockMenu.getItemInSlot(NetworkGreedyBlock.TEMPLATE_SLOT);
 
-            if (template == null || template.getType() == Material.AIR || !StackUtils.itemsMatch(incoming, template)) {
+            if (template == null || template.getType() == Material.AIR || !StackUtils.itemsMatch(incomingCache, template)) {
                 continue;
             }
 
@@ -2365,7 +2429,7 @@ public class NetworkRoot extends NetworkNode {
         // Run for matching barrels
         for (BarrelIdentity barrelIdentity : getInputAbleBarrels()) {
             // <editor-fold desc="do barrel">
-            if (StackUtils.itemsMatch(barrelIdentity, incoming)) {
+            if (StackUtils.itemsMatch(barrelIdentity, incomingCache)) {
                 // Netex - Cache start
                 addCountObservingAccessHistory(accessor, barrelIdentity.getLocation());
                 // Netex - Cache end
@@ -2414,7 +2478,6 @@ public class NetworkRoot extends NetworkNode {
         }
 
         for (BlockMenu blockMenu : getCellMenus()) {
-            if (!isRealCell(blockMenu)) continue;
             blockMenu.markDirty();
             BlockMenuUtil.pushItem(blockMenu, incoming, CELL_AVAILABLE_SLOTS);
             if (incoming.getAmount() == 0) {

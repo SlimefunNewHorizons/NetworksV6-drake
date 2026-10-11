@@ -158,6 +158,7 @@ public class NetworkQuantumStorage extends SpecialSlimefunItem implements Distin
             return;
         }
 
+        final long before = cache.getAmountLong();
         for (ItemStack itemStack : input) {
             if (StackUtils.isBlacklisted(itemStack)) {
                 continue;
@@ -167,7 +168,10 @@ public class NetworkQuantumStorage extends SpecialSlimefunItem implements Distin
                 itemStack.setAmount(leftover);
             }
         }
-        syncBlock(location, cache);
+        // Antes se sincronizaba siempre, aunque no hubiera entrado nada: escrituras de datos sin cambio.
+        if (cache.getAmountLong() != before) {
+            syncBlock(location, cache);
+        }
     }
 
     @ParametersAreNonnullByDefault
@@ -181,7 +185,20 @@ public class NetworkQuantumStorage extends SpecialSlimefunItem implements Distin
 
     @ParametersAreNonnullByDefault
     @Nullable
-    public static synchronized ItemStack getItemStack(@NotNull QuantumCache cache, @NotNull BlockMenu blockMenu, int amount) {
+    public static ItemStack getItemStack(@NotNull QuantumCache cache, @NotNull BlockMenu blockMenu, int amount) {
+        /*
+         * Antes el metodo era static synchronized: un unico candado para todas las quantum del
+         * servidor, asi que dos redes que sacaban de quantums distintas se esperaban entre si. Lo que
+         * hay que proteger es esta quantum, y QuantumCache ya sincroniza sus metodos sobre si misma:
+         * se usa ese mismo candado.
+         */
+        synchronized (cache) {
+            return getItemStack0(cache, blockMenu, amount);
+        }
+    }
+
+    @Nullable
+    private static ItemStack getItemStack0(@NotNull QuantumCache cache, @NotNull BlockMenu blockMenu, int amount) {
         if (cache.getAmountLong() < amount) {
             // Storage has no content or not enough, mix and match!
             ItemStack output = blockMenu.getItemInSlot(OUTPUT_SLOT);
@@ -259,10 +276,23 @@ public class NetworkQuantumStorage extends SpecialSlimefunItem implements Distin
             return;
         }
 
-        blockData.setData(BS_AMOUNT, String.valueOf(cache.getAmountLong()));
-        blockData.setData(BS_VOID, String.valueOf(cache.isVoidExcess()));
+        /*
+         * syncBlock corre en cada extraccion e insercion de la red, y cada setData programa una
+         * escritura en la base de datos de Slimefun (scheduleDelayedBlockDataUpdate) aunque el valor
+         * sea el mismo. El modo vacio y el limite casi nunca cambian: ahora solo se escribe lo que
+         * cambio.
+         */
+        setDataIfChanged(blockData, BS_AMOUNT, String.valueOf(cache.getAmountLong()));
+        setDataIfChanged(blockData, BS_VOID, String.valueOf(cache.isVoidExcess()));
         if (cache.supportsCustomMaxAmount()) {
-            StorageCacheUtils.setData(location, BS_CUSTOM_MAX_AMOUNT, String.valueOf(cache.getLimitLong()));
+            setDataIfChanged(blockData, BS_CUSTOM_MAX_AMOUNT, String.valueOf(cache.getLimitLong()));
+        }
+    }
+
+    private static void setDataIfChanged(
+        @NotNull SlimefunBlockData blockData, @NotNull String key, @NotNull String value) {
+        if (!value.equals(blockData.getData(key))) {
+            blockData.setData(key, value);
         }
     }
 
@@ -370,7 +400,11 @@ public class NetworkQuantumStorage extends SpecialSlimefunItem implements Distin
             syncBlock(blockMenu.getLocation(), cache);
         }
 
-        CACHES.put(blockMenu.getLocation().clone(), cache);
+        /*
+         * Aqui habia un CACHES.put(location.clone(), cache) en cada tick. El cache salio de
+         * CACHES.get con esa misma clave, asi que no cambiaba nada; solo clonaba un Location por tick
+         * y, si el bloque se rompia a la vez, podia volver a meter en el mapa una quantum ya rota.
+         */
         sendFeedback(blockMenu.getLocation(), FeedbackType.WORKING);
     }
 
