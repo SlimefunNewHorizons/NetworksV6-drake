@@ -46,13 +46,28 @@ public record MinecraftVersion(int major, int minor, int patch) implements Compa
         return !isAtLeast(version) && this != version;
     }
 
+    /*
+     * Acepta "1.21.11", "26.1", "26.1.2" y tambien versiones con sufijo como "1.21.11-pre5" o
+     * "26.1-rc-1": de cada parte se toman solo los digitos del principio. Antes el sufijo hacia que
+     * parseUnsignedInt lanzara NumberFormatException, y Networks.onEnable solo atrapa
+     * NoClassDefFoundError: el plugin no arrancaba en una pre-release o release candidate.
+     */
     public static MinecraftVersion deserialize(String s) {
         String[] split = s.split("\\.");
         if (split.length < 2) throw new IllegalArgumentException("Invalid version string: " + s);
-        int major = Integer.parseUnsignedInt(split[0]);
-        int minor = Integer.parseUnsignedInt(split[1]);
-        int patch = Integer.parseUnsignedInt(split.length == 2 ? "0" : split[2]);
+        int major = leadingNumber(split[0], s);
+        int minor = leadingNumber(split[1], s);
+        int patch = split.length == 2 ? 0 : leadingNumber(split[2], s);
         return MinecraftVersion.of(major, minor, patch);
+    }
+
+    private static int leadingNumber(String part, String full) {
+        int end = 0;
+        while (end < part.length() && Character.isDigit(part.charAt(end))) {
+            end++;
+        }
+        if (end == 0) throw new IllegalArgumentException("Invalid version string: " + full);
+        return Integer.parseUnsignedInt(part.substring(0, end));
     }
 
     public static MinecraftVersion of(int major, int minor, int patch) {

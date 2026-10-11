@@ -73,6 +73,69 @@ dependencies {
     compileOnly(fileTree(mapOf("dir" to "lib", "include" to listOf("*.jar"))))
 }
 
+/*
+ * Compatibilidad con otras versiones de la API de Paper.
+ *
+ * El jar se sigue compilando contra paper-api 1.21.4 (arriba). Estas tareas compilan el mismo codigo
+ * contra otras versiones de la API: si Paper quito o cambio algo que el plugin usa, la tarea falla y
+ * dice que y donde. Es una prueba de compatibilidad de codigo fuente, no un servidor en marcha.
+ *
+ * Cada version tiene su configuracion: las mismas dependencias que la compilacion normal, pero con
+ * paper-api sustituido por la version objetivo. Las 26.x estan compiladas para Java 25, asi que se
+ * compila con un JDK 25 (salida --release 21, igual que el jar real).
+ *
+ * No cuelga de `check` ni de `build` a proposito: necesita un JDK 25 instalado y los repos de Paper,
+ * y no debe romper el build de JitPack. Se lanza aparte con:  ./gradlew paperCompat
+ */
+val paperCompatTargets = linkedMapOf(
+    "1_21_11" to "1.21.11-R0.1-SNAPSHOT",
+    "26_1" to "26.1.2.build.74-stable",
+    "26_2" to "26.2.build.133-stable",
+)
+
+val paperCompatTasks = paperCompatTargets.map { (suffix, paperVersion) ->
+    val classpath = configurations.create("paperCompat$suffix") {
+        isCanBeConsumed = false
+        isCanBeResolved = true
+        extendsFrom(configurations.compileOnly.get(), configurations.implementation.get())
+        attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_API))
+            attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category.LIBRARY))
+            attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.JAR))
+            attribute(Bundling.BUNDLING_ATTRIBUTE, objects.named(Bundling.EXTERNAL))
+            attribute(
+                TargetJvmEnvironment.TARGET_JVM_ENVIRONMENT_ATTRIBUTE,
+                objects.named(TargetJvmEnvironment.STANDARD_JVM))
+            attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
+        }
+        resolutionStrategy.eachDependency {
+            if (requested.group == "io.papermc.paper" && requested.name == "paper-api") {
+                useVersion(paperVersion)
+                because("prueba de compatibilidad contra paper-api $paperVersion")
+            }
+        }
+    }
+
+    tasks.register<JavaCompile>("compileAgainstPaper$suffix") {
+        group = "verification"
+        description = "Compila el plugin contra paper-api $paperVersion"
+        source = sourceSets.main.get().java
+        this.classpath = classpath
+        options.annotationProcessorPath = configurations.annotationProcessor.get()
+        options.release.set(21)
+        options.encoding = "UTF-8"
+        options.compilerArgs.add("-Xlint:-removal")
+        javaCompiler.set(javaToolchains.compilerFor { languageVersion.set(JavaLanguageVersion.of(25)) })
+        destinationDirectory.set(layout.buildDirectory.dir("paper-compat/$suffix"))
+    }
+}
+
+tasks.register("paperCompat") {
+    group = "verification"
+    description = "Compila el plugin contra paper-api " + paperCompatTargets.values.joinToString(", ")
+    dependsOn(paperCompatTasks)
+}
+
 tasks {
     compileJava {
         options.compilerArgs.add("-Xlint:-removal")
