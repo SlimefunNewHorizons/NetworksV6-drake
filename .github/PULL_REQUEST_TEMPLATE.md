@@ -9,7 +9,8 @@
 - [ ] Compatibilidad validada para `main`
 
 ## Test plan
-- [ ] `mvn -DskipTests clean package` o `./gradlew build`
+- [ ] `./gradlew build` (tests + jar)
+- [ ] `./gradlew paperCompat` si toca API de Paper (necesita JDK 25)
 - [ ] Arranque en Paper/Purpur 1.21.x
 - [ ] Revisión de `logs/latest.log` sin errores nuevos
 

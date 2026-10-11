@@ -6,9 +6,8 @@ on:
     branches: [main, master, 1.21-latin, fix/drakes-loans]
     paths:
       - 'src/**'
-      - 'pom.xml'
-      - 'build.gradle'
       - 'build.gradle.kts'
+      - 'settings.gradle.kts'
       - 'README.md'
       - 'docs/**'
   workflow_dispatch:
@@ -59,7 +58,7 @@ jobs:
           fi
 
           if git rev-parse HEAD~1 >/dev/null 2>&1; then
-            LINEAS="$(git diff --numstat HEAD~1 HEAD -- 'src/**' pom.xml build.gradle build.gradle.kts 2>/dev/null                       | awk '{ s += $1 + $2 } END { print s + 0 }')"
+            LINEAS="$(git diff --numstat HEAD~1 HEAD -- 'src/**' build.gradle.kts settings.gradle.kts 2>/dev/null                       | awk '{ s += $1 + $2 } END { print s + 0 }')"
           else
             LINEAS=9999
           fi
@@ -86,38 +85,28 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Solo shadowJar: es el jar que lleva las dependencias empaquetadas y relocalizadas.
       - name: Compilar
-        run: |
-          set -euo pipefail
-          if [ -f pom.xml ]; then
-            mvn -B -ntp package -DskipTests
-          elif [ -f gradlew ]; then
-            chmod +x gradlew
-            ./gradlew build -x test --no-daemon
-          elif [ -f build.gradle ] || [ -f build.gradle.kts ]; then
-            gradle build -x test --no-daemon
-          else
-            echo "No se encontro build descriptor (pom.xml ni build.gradle)"
-            exit 1
-          fi
+        run: ./gradlew --no-daemon shadowJar
 
       - name: Localizar el jar
         id: jar
         run: |
           set -euo pipefail
-          RUTA=""
-          if [ -d target ]; then
-            RUTA="$(find target -maxdepth 2 -name '*.jar' ! -name 'original-*' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n1 || true)"
-          elif [ -d build/libs ]; then
-            RUTA="$(find build/libs -maxdepth 2 -name '*.jar' ! -name 'original-*' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n1 || true)"
-          fi
-          if [ -z "$RUTA" ]; then echo "No se encontro el jar compilado"; exit 1; fi
+          # Antes se tomaba el primer .jar de build/libs, que era NetworksExpansion-<version>.jar: el
+          # jar normal, sin dependencias empaquetadas ni paquetes relocalizados, y no funciona en el
+          # servidor. El jar del plugin es el de shadowJar.
+          RUTA="$(find build/libs -maxdepth 1 -name 'NetworksV6-Drake-*.jar' | head -n1 || true)"
+          if [ -z "$RUTA" ]; then echo "No se encontro build/libs/NetworksV6-Drake-*.jar"; exit 1; fi
+          jar tf "$RUTA" | grep -q '^plugin.yml$'
+          jar tf "$RUTA" | grep -q '^io/github/sefiraat/networks/bstats/bukkit/Metrics.class$'
           echo "ruta=$RUTA" >> "$GITHUB_OUTPUT"
-          VER="0.0.0-${GITHUB_SHA:0:7}"
-          if [ -f pom.xml ]; then
-            POM_VER="$(mvn -q -ntp help:evaluate -Dexpression=project.version -DforceStdout 2>/dev/null | tail -n1 | tr -d '[:space:]' || true)"
-            case "$POM_VER" in ''|*ERROR*|*'$'*) ;; *) VER="$POM_VER";; esac
-          fi
+          # Version de build.gradle.kts mas el commit, para que cada publicacion sea unica.
+          GRADLE_VER="$(./gradlew -q --no-daemon properties --property version | sed -n 's/^version: *//p' | tr -d '[:space:]')"
+          case "$GRADLE_VER" in ''|unspecified) VER="0.0.0+${GITHUB_SHA:0:7}";; *) VER="${GRADLE_VER}+${GITHUB_SHA:0:7}";; esac
           echo "version=$VER" >> "$GITHUB_OUTPUT"
           echo "Version detectada: $VER"
 
