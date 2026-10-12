@@ -1,22 +1,43 @@
-name: Networks
-authors:
-  - Sefiraat
-  - balugaq
-  - ytdd9527
-description: No idea yet
+name: NetworksV6-Drake
+authors: [Sefiraat, balugaq, ytdd9527, Chagui68, mmmjjkx, DrakesCraft-Labs]
+description: Networks V6 (Drake edition) on the NetworksExpansion base, stabilized for DrakesCraft 1.21.x.
 main: io.github.sefiraat.networks.Networks
-website: https://github.com/ytdd9527/NetworksExpansion
+website: https://github.com/SlimefunNewHorizons/NetworksV6-drake
 version: ${version}
-api-version: 1.20
+api-version: "1.21"
+
+# Identidad de produccion: el nombre fija la carpeta de datos (plugins/NetworksV6-Drake) y el namespace de las
+# claves. NO cambiarlo: con otro nombre el quantum storage y la config quedarian huerfanos. Lo valida PluginYmlTest.
+
+# Paper descarga esto la primera vez y lo pone en el classpath del plugin, en vez de
+# empaquetarlo. Solo lo usa el espejo SQL opcional del quantum storage.
+libraries:
+  - org.xerial:sqlite-jdbc:3.50.3.0
 depend:
   - Slimefun
 softdepend:
-
   - InfinityExpansion
-  - FluffyMachines
   - Netheopoiesis
+  - InfinityExpansion2
+  - Supreme
+  - Cultivation
+  - GeneticChickengineering
+  - DynaTech
+  - SlimyTreeTaps
+  - ElectricSpawners
+  - ExtraTools
+  - TranscEndence
+  - FluffyMachines
+  - FoxyMachines
+  - GlobalWarming
+  - SlimefunWarfare
+  - Liquid
+  - AlchimiaVitae
+  - FNAmplifications
+  - ElementManipulation
   - SlimeHUD
   - WildChests
+  - WeaponsAddon
   - RoseStacker
   - WildStacker
   - mcMMO
@@ -27,12 +48,13 @@ softdepend:
 commands:
   networks:
     aliases: networksexpansion
-    description: NetworksExpansion base command
-    usage: The NetworksExpansion version you have installed does not seem to be compatible with your server setup. Check your console for more detailed info.
+    description: /networks
+    usage: /networks <sub>
+    permission: networks.admin
 
 permissions:
   networks.admin:
-    description: Allows you to use all NetworksExpansion commands
+    description: Allows Networks diagnostics, repair and maintenance commands.
     default: op
   networks.commands.help:
     description: Allows you to use the /networks help command
