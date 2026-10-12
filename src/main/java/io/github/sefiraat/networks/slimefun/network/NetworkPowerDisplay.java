@@ -1,81 +1,78 @@
 package io.github.sefiraat.networks.slimefun.network;
 
-import com.balugaq.netex.api.enums.FeedbackType;
-import com.balugaq.netex.api.helpers.Icon;
-import com.balugaq.netex.utils.Lang;
-import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunBlockData;
-import com.ytdd9527.networksexpansion.utils.itemstacks.ItemStackUtil;
 import io.github.sefiraat.networks.NetworkStorage;
 import io.github.sefiraat.networks.network.NetworkRoot;
 import io.github.sefiraat.networks.network.NodeDefinition;
 import io.github.sefiraat.networks.network.NodeType;
 import io.github.sefiraat.networks.slimefun.NetworkSlimefunItems;
-import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
-import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.github.thebusybiscuit.slimefun4.libraries.dough.items.CustomItemStack;
-import io.github.thebusybiscuit.slimefun4.libraries.dough.protection.Interaction;
-import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
-import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
-import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
-import me.mrCookieSlime.Slimefun.api.item_transport.ItemTransportFlow;
+import io.github.sefiraat.networks.utils.ItemCreator;
+import io.github.sefiraat.networks.utils.Theme;
+import com.github.drakescraft_labs.slimefun4.api.items.ItemGroup;
+import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItem;
+import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItemStack;
+import com.github.drakescraft_labs.slimefun4.api.recipes.RecipeType;
+import com.github.drakescraft_labs.slimefun4.implementation.Slimefun;
+import com.github.drakescraft_labs.slimefun4.libraries.dough.items.CustomItemStack;
+import com.github.drakescraft_labs.slimefun4.libraries.dough.protection.Interaction;
+import me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config;
+import com.github.drakescraft_labs.slimefun4.legacy.Objects.handlers.BlockTicker;
+import com.github.drakescraft_labs.slimefun4.legacy.api.BlockStorage;
+import com.github.drakescraft_labs.slimefun4.legacy.api.inventory.BlockMenu;
+import com.github.drakescraft_labs.slimefun4.legacy.api.inventory.BlockMenuPreset;
+import com.github.drakescraft_labs.slimefun4.legacy.api.item_transport.ItemTransportFlow;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.jetbrains.annotations.NotNull;
+
+import javax.annotation.Nonnull;
 
 public class NetworkPowerDisplay extends NetworkObject {
 
-    private static final int[] BACKGROUND_SLOTS = new int[]{0, 1, 2, 3, 5, 6, 7, 8};
+    private static final int[] BACKGROUND_SLOTS = new int[]{
+        0, 1, 2, 3, 5, 6, 7, 8
+    };
     private static final int DISPLAY_SLOT = 4;
 
-    public NetworkPowerDisplay(
-        @NotNull ItemGroup itemGroup,
-        @NotNull SlimefunItemStack item,
-        @NotNull RecipeType recipeType,
-        ItemStack @NotNull [] recipe) {
-        super(itemGroup, item, recipeType, recipe, NodeType.POWER_DISPLAY);
-        addItemHandler(new BlockTicker() {
-            @Override
-            public boolean isSynchronized() {
-                return false;
-            }
+    private static final ItemStack EMPTY = ItemCreator.create(
+        Material.RED_STAINED_GLASS_PANE,
+        Theme.CLICK_INFO + "Status",
+        Theme.PASSIVE + "Disconnected"
+    );
 
-            @Override
-            public void tick(@NotNull Block block, SlimefunItem slimefunItem, @NotNull SlimefunBlockData data) {
-                BlockMenu blockMenu = data.getBlockMenu();
-                if (blockMenu != null) {
-                    addToRegistry(block);
-                    setDisplay(blockMenu);
+    public NetworkPowerDisplay(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
+        super(itemGroup, item, recipeType, recipe, NodeType.POWER_DISPLAY);
+        addItemHandler(
+            new BlockTicker() {
+                @Override
+                public boolean isSynchronized() {
+                    return true;
+                }
+
+                @Override
+                public void tick(Block block, SlimefunItem slimefunItem, Config config) {
+                    BlockMenu blockMenu = BlockStorage.getInventory(block);
+                    if (blockMenu != null) {
+                        addToRegistry(block);
+                        setDisplay(blockMenu);
+                    }
                 }
             }
-        });
+        );
     }
 
-    private static @NotNull ItemStack getChargeStack(long charge) {
-        return ItemStackUtil.getCleanItem(new CustomItemStack(
-            Material.GREEN_STAINED_GLASS_PANE,
-            Lang.getString("icons.power_display.status_title"),
-            String.format(Lang.getString("icons.power_display.charge"), charge)));
-    }
-
-    private void setDisplay(@NotNull BlockMenu blockMenu) {
+    private void setDisplay(BlockMenu blockMenu) {
         if (blockMenu.hasViewer()) {
-            final NodeDefinition definition = NetworkStorage.getNode(blockMenu.getLocation());
+            final NodeDefinition definition = NetworkStorage.getAllNetworkObjects().get(blockMenu.getLocation());
 
-            if (definition.getNode() == null) {
-                blockMenu.replaceExistingItem(DISPLAY_SLOT, Icon.POWER_DISPLAY_EMPTY);
-                sendFeedback(blockMenu.getLocation(), FeedbackType.NO_NETWORK_FOUND);
+            if (definition == null || definition.getNode() == null) {
+                blockMenu.replaceExistingItem(DISPLAY_SLOT, EMPTY);
                 return;
             }
 
             final NetworkRoot root = definition.getNode().getRoot();
             final long networkCharge = root.getRootPower();
             blockMenu.replaceExistingItem(DISPLAY_SLOT, getChargeStack(networkCharge));
-            sendFeedback(blockMenu.getLocation(), FeedbackType.WORKING);
         }
     }
 
@@ -90,11 +87,9 @@ public class NetworkPowerDisplay extends NetworkObject {
             }
 
             @Override
-            public boolean canOpen(@NotNull Block block, @NotNull Player player) {
-                return player.hasPermission("slimefun.inventory.bypass")
-                    || (NetworkSlimefunItems.NETWORK_POWER_DISPLAY.canUse(player, false)
-                    && Slimefun.getProtectionManager()
-                    .hasPermission(player, block.getLocation(), Interaction.INTERACT_BLOCK));
+            public boolean canOpen(@Nonnull Block block, @Nonnull Player player) {
+                return NetworkSlimefunItems.NETWORK_POWER_DISPLAY.canUse(player, false)
+                    && Slimefun.getProtectionManager().hasPermission(player, block.getLocation(), Interaction.INTERACT_BLOCK);
             }
 
             @Override
@@ -102,5 +97,13 @@ public class NetworkPowerDisplay extends NetworkObject {
                 return new int[0];
             }
         };
+    }
+
+    private static ItemStack getChargeStack(long charge) {
+        return ItemCreator.create(
+            Material.GREEN_STAINED_GLASS_PANE,
+            Theme.CLICK_INFO + "Status",
+            Theme.PASSIVE + "Current Network Charge: " + charge + "j"
+        );
     }
 }

@@ -1,11 +1,11 @@
 package io.github.sefiraat.networks.slimefun.tools;
 
-import com.balugaq.netex.utils.Lang;
 import io.github.sefiraat.networks.utils.StackUtils;
+import io.github.sefiraat.networks.utils.Theme;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.jetbrains.annotations.Nullable;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 
 public interface CanCooldown {
@@ -26,7 +26,7 @@ public interface CanCooldown {
     default boolean canBeUsed(@Nullable Player player, ItemStack itemStack) {
         if (StackUtils.isOnCooldown(itemStack)) {
             if (player != null) {
-                player.sendMessage(Lang.getString("messages.unsupported-operation.can_cooldown"));
+                player.sendMessage(Theme.WARNING + "This is still on cooldown");
             }
             return false;
         } else {

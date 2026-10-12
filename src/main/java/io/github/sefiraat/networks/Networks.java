@@ -1,209 +1,99 @@
 package io.github.sefiraat.networks;
 
-import com.balugaq.netex.api.algorithm.ID;
-import com.balugaq.netex.api.data.ItemFlowRecord;
-import com.balugaq.netex.api.enums.MinecraftVersion;
-import com.balugaq.netex.api.keybind.Keybinds;
-import com.balugaq.netex.core.guide.GridNewStyleCustomAmountGuideOption;
-import com.balugaq.netex.utils.Debug;
-import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunBlockData;
-import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
-import com.ytdd9527.networksexpansion.core.managers.ConfigManager;
-import com.ytdd9527.networksexpansion.core.services.LocalizationService;
-import com.ytdd9527.networksexpansion.setup.SetupUtil;
-import com.ytdd9527.networksexpansion.utils.databases.DataSource;
-import com.ytdd9527.networksexpansion.utils.databases.DataStorage;
-import com.ytdd9527.networksexpansion.utils.databases.QueryQueue;
+import com.github.drakescraft_labs.slimefun4.api.SlimefunAddon;
+import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItem;
+import com.github.drakescraft_labs.slimefun4.legacy.api.BlockStorage;
+import com.github.drakescraft_labs.slimefun4.legacy.api.inventory.BlockMenu;
+import com.github.drakescraft_labs.slimefun4.legacy.api.inventory.BlockMenuPreset;
 import io.github.sefiraat.networks.commands.NetworksMain;
 import io.github.sefiraat.networks.integrations.HudCallbacks;
 import io.github.sefiraat.networks.integrations.NetheoPlants;
+import io.github.sefiraat.networks.listeners.SyncListener;
 import io.github.sefiraat.networks.managers.ListenerManager;
 import io.github.sefiraat.networks.managers.SupportedPluginManager;
-import io.github.sefiraat.networks.slimefun.NetworksSlimefunItemStacks;
-import io.github.sefiraat.networks.slimefun.network.AdminDebuggable;
+import io.github.sefiraat.networks.network.SupportedRecipes;
+import io.github.sefiraat.networks.persistence.QuantumStorageMirror;
+import io.github.sefiraat.networks.slimefun.NetworkSlimefunItems;
 import io.github.sefiraat.networks.slimefun.network.NetworkController;
+import io.github.sefiraat.networks.slimefun.network.NetworkQuantumStorage;
+import io.github.sefiraat.networks.network.NetworkRoot;
+import com.github.drakescraft_labs.slimefun4.implementation.Slimefun;
 import io.github.sefiraat.networks.utils.NetworkUtils;
-import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
-import io.github.thebusybiscuit.slimefun4.core.guide.options.SlimefunGuideSettings;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.github.thebusybiscuit.slimefun4.libraries.paperlib.PaperLib;
-import lombok.Getter;
-import net.byteflux.libby.BukkitLibraryManager;
-import net.byteflux.libby.Library;
-import net.byteflux.libby.LibraryManager;
-import org.bstats.bukkit.Metrics;
-import org.bstats.charts.AdvancedPie;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitRunnable;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.yaml.snakeyaml.error.YAMLException;
-
-import java.sql.SQLException;
-import java.text.MessageFormat;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.logging.Level;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.text.MessageFormat;
+import java.util.HashSet;
+import java.util.concurrent.TimeUnit;
 
 public class Networks extends JavaPlugin implements SlimefunAddon {
-    private static final String DEFAULT_LANGUAGE = "en-US";
+
     private static Networks instance;
+    private static final long SHUTDOWN_DIRTY_MARK_BUDGET_NANOS = TimeUnit.SECONDS.toNanos(2);
 
-    @Getter
-    private static DataSource dataSource;
+    private final String username;
+    private final String repo;
+    private final String branch;
 
-    @Getter
-    private static QueryQueue queryQueue;
-
-    @Getter
-    private static BukkitRunnable autoSaveThread;
-
-    private static MinecraftVersion minecraftVersion = MinecraftVersion.UNKNOWN;
-    private final @NotNull String username;
-    private final @NotNull String repo;
-    private final @NotNull String branch;
-    private ConfigManager configManager;
     private ListenerManager listenerManager;
     private SupportedPluginManager supportedPluginManager;
-    private LocalizationService localizationService;
-    private long slimefunTickCount;
+    private QuantumStorageMirror quantumStorageMirror;
 
     public Networks() {
-        this.username = "ytdd9527";
-        this.repo = "NetworksExpansion";
-        this.branch = "master";
-    }
-
-    public static ConfigManager getConfigManager() {
-        return Networks.getInstance().configManager;
-    }
-
-    public static Networks getInstance() {
-        return Networks.instance;
-    }
-
-    @NotNull
-    public static PluginManager getPluginManager() {
-        return Networks.getInstance().getServer().getPluginManager();
-    }
-
-    public static SupportedPluginManager getSupportedPluginManager() {
-        return Networks.getInstance().supportedPluginManager;
-    }
-
-    public static LocalizationService getLocalizationService() {
-        return Networks.getInstance().localizationService;
-    }
-
-    public static ListenerManager getListenerManager() {
-        return Networks.getInstance().listenerManager;
-    }
-
-    public static long getSlimefunTickCount() {
-        return getInstance().slimefunTickCount;
+        this.username = "DrakesCraft-Labs";
+        this.repo = "NetworksV6-drake";
+        this.branch = "main";
     }
 
     @Override
     public void onEnable() {
         instance = this;
 
-        getLogger().info("Loading language");
-        this.configManager = new ConfigManager();
-        this.localizationService = new LocalizationService(this);
-        String language = configManager.getLanguage();
-        try {
-            localizationService.addLanguage(language);
-            getLogger().info("Language " + language + " loaded successfully.");
-        } catch (ClassCastException | IllegalArgumentException | YAMLException e) {
-            getLogger().log(Level.WARNING, "Failed to load language " + language, e);
-        }
+        getLogger().info("########################################");
+        getLogger().info("      Networks DrakesCraft Edition      ");
+        getLogger().info("      Original author: Sefiraat         ");
+        getLogger().info(" Repo: DrakesCraft-Labs/NetworksV6-drake");
+        getLogger().info("########################################");
 
-        localizationService.addDefaultLanguage(DEFAULT_LANGUAGE);
-        getLogger().info("Default language " + DEFAULT_LANGUAGE + " loaded successfully.");
-
-        superHead();
-        environmentCheck();
-        getLogger().info(getLocalizationService().getString("messages.startup.loaded-language"));
-        getLogger().info(getLocalizationService().getString("messages.startup.getting-config"));
         saveDefaultConfig();
-
-        getLogger().info(getLocalizationService().getString("messages.startup.trying-auto-update"));
-        tryUpdate();
+        this.quantumStorageMirror = QuantumStorageMirror.create(this);
 
         this.supportedPluginManager = new SupportedPluginManager();
+        setupSlimefun();
 
-        // Try to connect database
-        getLogger().info(getLocalizationService().getString("messages.startup.connecting-database"));
-        try {
-            dataSource = new DataSource();
-        } catch (ClassNotFoundException | SQLException e) {
-            getLogger().warning(getLocalizationService().getString("messages.startup.failed-to-connect-database"));
-            Debug.trace(e);
-            onDisable();
-        }
-
-        getLogger().info(getLocalizationService().getString("messages.startup.creating-query-queue"));
-        queryQueue = new QueryQueue();
-        queryQueue.startThread();
-
-        getLogger().info(getLocalizationService().getString("messages.startup.creating-auto-save-thread"));
-        autoSaveThread = new BukkitRunnable() {
-            @Override
-            public void run() {
-                DataStorage.saveAmountChange();
-            }
-        };
-        int seconds = getConfig().getInt("drawer-auto-save-period");
-        seconds = seconds <= 0 ? 300 : seconds;
-        long period = 20L * seconds;
-        autoSaveThread.runTaskTimerAsynchronously(this, 2 * period, period);
-
-        getLogger().info(getLocalizationService().getString("messages.startup.registering-items"));
-        SetupUtil.setupAll();
-
-        // Mejora drake: puente de interoperabilidad con MultiverseNets (Chagui). Reflexivo:
-        // latente si MultiverseNets no esta, ambos plugins siguen funcionando por separado.
-        cl.jackstar.networks.compat.MultiverseNetsBridge.init(getLogger());
-
-        getLogger().info(getLocalizationService().getString("messages.startup.registering-listeners"));
         this.listenerManager = new ListenerManager();
-        getLogger().info(getLocalizationService().getString("messages.startup.registering-commands"));
-        PluginCommand c = this.getCommand("networks");
-        if (c != null) {
-            c.setExecutor(new NetworksMain());
-        }
+        final NetworksMain networksCommand = new NetworksMain();
+        this.getCommand("networks").setExecutor(networksCommand);
+        this.getCommand("networks").setTabCompleter(networksCommand);
 
-        setupMetrics();
+        SupportedRecipes.setup();
 
-        Bukkit.getScheduler()
-            .runTaskTimer(
-                this,
-                () -> slimefunTickCount++,
-                1,
-                Slimefun.getTickerTask().getTickRate());
+        // Slimefun finishes restoring block storage after addon enablement. Reindex twice
+        // so controllers can rebuild networks in chunks that never fire ChunkLoadEvent.
+        scheduleLoadedChunkReindex(200L);
+        scheduleLoadedChunkReindex(600L);
 
-        // Fix dupe bug where player breaks the network controller data without player interaction
-        Bukkit.getScheduler()
-            .runTaskTimer(
+        // Fix dupe bug which breaks the network controller data without player interaction
+        Bukkit.getScheduler().runTaskTimer(
                 this,
                 () -> {
                     Set<Location> wrongs = new HashSet<>();
                     Set<Location> controllers = new HashSet<>(
-                        NetworkController.getNetworks().keySet());
+                            NetworkController.getNetworks().keySet());
                     for (Location controller : controllers) {
-                        SlimefunBlockData data = StorageCacheUtils.getBlock(controller);
-                        if (data == null
-                            || !NetworksSlimefunItemStacks.NETWORK_CONTROLLER
-                            .getItemId()
-                            .equals(data.getSfId())) {
-                            wrongs.add(controller);
+                        if (controller != null && controller.getWorld() != null) {
+                            int chunkX = controller.getBlockX() >> 4;
+                            int chunkZ = controller.getBlockZ() >> 4;
+                            if (controller.getWorld().isChunkLoaded(chunkX, chunkZ)) {
+                                if (!(BlockStorage.check(controller) instanceof NetworkController)) {
+                                    wrongs.add(controller);
+                                }
+                            }
                         }
                     }
 
@@ -211,166 +101,147 @@ public class Networks extends JavaPlugin implements SlimefunAddon {
                         NetworkUtils.clearNetwork(wrong);
                     }
                 },
-                1,
-                Slimefun.getTickerTask().getTickRate());
+                5, Slimefun.getTickerTask().getTickRate()
+        );
 
-        Bukkit.getScheduler()
-            .runTaskTimer(
-                this,
-                () -> NetworkController.getRecords().values().forEach(ItemFlowRecord::gc),
-                1,
-                Slimefun.getTickerTask().getTickRate());
+        // Iniciar telemetría de Action Bar HUD
+        new io.github.sefiraat.networks.tasks.NetworkActionBarTask().runTaskTimer(this, 20L, 10L);
+    }
 
-        AdminDebuggable.load();
-        SlimefunGuideSettings.addOption(GridNewStyleCustomAmountGuideOption.instance());
-        Bukkit.getScheduler().runTaskLaterAsynchronously(this, Keybinds::distinctAll, 1L);
-        ID.fetchId();
-        Keybinds.fetchScripts();
-        getLogger().info(getLocalizationService().getString("messages.startup.enabled-successfully"));
+    private void scheduleLoadedChunkReindex(long delayTicks) {
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            try {
+                int indexed = SyncListener.indexLoadedChunks();
+                // Registrar los nodos no basta: un controlador que ya reconstruyo antes de que el
+                // reindex devolviera al registro un nodo lejano conserva su topologia y no lo
+                // readopta, porque solo reconstruye si su red es nula o esta sucia. Tras reindexar
+                // se marcan sucias las redes cargadas para que cada controlador rehaga su grafo una
+                // vez e incorpore lo que faltara. Es lo que dejaba un nodo fuera de su red tras un
+                // reinicio, con todo bien conectado y la maquina sin trabajar.
+                for (org.bukkit.World world : Bukkit.getWorlds()) {
+                    io.github.sefiraat.networks.slimefun.network.NetworkController
+                        .markNetworksDirtyInWorld(world);
+                }
+                getLogger().info("Startup network reindex added " + indexed + " node(s).");
+            } catch (Exception exception) {
+                getLogger().severe("Startup network reindex failed: " + exception.getMessage());
+                exception.printStackTrace();
+            }
+        }, delayTicks);
     }
 
     @Override
     public void onDisable() {
+        if (instance == null) {
+            return;
+        }
+
         try {
-            getLogger().info(getLocalizationService().getString("messages.shutdown.saving-config"));
-            ID.saveId();
-            this.configManager.saveAll();
-            getLogger().info(getLocalizationService().getString("messages.shutdown.disconnecting-database"));
-        } catch (Exception e) {
-            Debug.trace(e);
+            io.github.sefiraat.networks.holograms.NetworkHologramManager.clearAll();
+        } catch (Throwable t) {
+            getLogger().warning("Error clearing holograms on disable: " + t.getMessage());
         }
 
-        if (autoSaveThread != null) {
-            autoSaveThread.cancel();
+        try {
+            Bukkit.getScheduler().cancelTasks(this);
+        } catch (Throwable t) {
+            getLogger().severe("Failed to cancel scheduler tasks: " + t.getMessage());
         }
+        
+        saveData();
+        if (quantumStorageMirror != null) {
+            quantumStorageMirror.close();
+        }
+        NetworkQuantumStorage.clearRuntimeCache();
+        NetworkController.clearRuntimeState();
+        NetworkRoot.clearRuntimeHistory();
+        // El cache de permisos crece con cada par de dueno y ubicacion vistos.
+        io.github.sefiraat.networks.utils.OwnerAccessCache.clear();
+        NetworkStorage.clearRuntimeState();
+        instance = null;
+    }
 
-        // El estado estatico no se vacia solo. Sin esto, una recarga del plugin deja los mapas
-        // llenos de ubicaciones muertas y las redes dejan de responder hasta reiniciar entero.
-        io.github.sefiraat.networks.slimefun.network.NetworkController.clearRuntimeState();
-        io.github.sefiraat.networks.slimefun.network.NetworkDirectional.clearSelectedFaces();
-        DataStorage.saveAmountChange();
-        if (queryQueue != null) {
-            while (!queryQueue.isAllDone()) {
-                getLogger()
-                    .info(String.format(
-                        getLocalizationService().getString("messages.shutdown.saving-data"),
-                        queryQueue.getTaskAmount()));
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    Debug.trace(e);
-                }
-            }
-            queryQueue.scheduleAbort();
+    private void saveData() {
+        getLogger().info("Marking Networks inventories dirty before shutdown (2s budget)...");
+
+        try {
+            int marked = markNetworkInventoriesDirty(System.nanoTime() + SHUTDOWN_DIRTY_MARK_BUDGET_NANOS);
+            getLogger().info("Marked " + marked + " Networks inventories dirty. Slimefun will persist shared block storage.");
+        } catch (Throwable t) {
+            getLogger().severe("Failed to mark all network inventories dirty: " + t.getMessage());
+            t.printStackTrace();
         }
-        getLogger().info(getLocalizationService().getString("messages.shutdown.saved-all-data"));
-        getLogger().info(getLocalizationService().getString("messages.shutdown.disabled-successfully"));
     }
 
     /**
-     * Desactivado a proposito en este fork.
-     *
-     * GuizhanUpdater descargaba la ultima compilacion de SU repositorio y sustituia el jar. En un
-     * fork eso es destructivo: se llevaria por delante todos nuestros arreglos sin avisar, y la
-     * proxima vez que alguien mirara por que "volvio el bug de los cofres" no habria ni rastro.
-     *
-     * Nuestras actualizaciones salen de nuestra propia canalizacion, no de la suya.
+     * Marks known network menus without scanning every Slimefun block in every world.
+     * Slimefun owns the subsequent global persistence pass during its own shutdown.
      */
-    public void tryUpdate() {
-        // Sin operacion.
-    }
-
-    public void superHead() {
-        List<String> superHead = getLocalizationService().getStringList("messages.super-head");
-        for (String line : superHead) {
-            getLogger().info(line);
-        }
-    }
-
-    public void environmentCheck() {
-        /*
-         * Ya no se exige GuizhanLibPlugin.
-         *
-         * De esa libreria solo se usaban ayudantes de nombres en chino, enlaces a su wiki y el
-         * autoactualizador. Los dos primeros se sustituyeron por cl.jackstar.networks.compat, y
-         * el tercero no lo queremos. Obligar a instalarla era pedir una dependencia entera por
-         * cuatro llamadas que no aportan nada aqui.
-         */
+    private int markNetworkInventoriesDirty(long deadlineNanos) {
+        int marked = 0;
         try {
-            minecraftVersion = MinecraftVersion.current();
-        } catch (NoClassDefFoundError | NoSuchFieldError e) {
-            for (int i = 0; i < 20; i++) {
-                getLogger()
-                    .severe(getLocalizationService().getString("messages.depend.suggest-download-newer-slimefun"));
+            for (Location location : new HashSet<>(NetworkStorage.getAllNetworkObjects().keySet())) {
+                if (System.nanoTime() >= deadlineNanos) {
+                    getLogger().warning("Shutdown dirty-mark budget reached; remaining menus stay in Slimefun's normal save queue.");
+                    return marked;
+                }
+
+                if (markNetworkInventoryDirty(location)) {
+                    marked++;
+                }
             }
+        } catch (Throwable t) {
+            getLogger().severe("Failed to dirty-mark stored network objects: " + t.getMessage());
         }
 
-        if (minecraftVersion == MinecraftVersion.UNKNOWN) {
-            final int major = PaperLib.getMinecraftVersion();
-            final int minor = PaperLib.getMinecraftPatchVersion();
-            minecraftVersion = MinecraftVersion.of(major, minor);
-        }
+        return marked;
     }
 
-    public void setupIntegrations() {
-        if (supportedPluginManager.isSlimeHud()) {
-            getLogger().info(getLocalizationService().getString("messages.integrations.found-slimehud"));
-            try {
-                HudCallbacks.setup();
-            } catch (NoClassDefFoundError e) {
-                getLogger().warning(getLocalizationService().getString("messages.integrations.not-found-slimehud"));
-            }
+    private boolean markNetworkInventoryDirty(Location location) {
+        if (location == null || location.getWorld() == null) {
+            return false;
         }
+
+        try {
+            final SlimefunItem item = BlockStorage.check(location);
+            if (item == null || !item.getId().startsWith("NTW_") || !BlockMenuPreset.isInventory(item.getId())) {
+                return false;
+            }
+
+            final BlockMenu menu = BlockStorage.getInventory(location);
+            if (menu != null) {
+                menu.markDirty();
+                return true;
+            }
+        } catch (Throwable t) {
+            getLogger().severe("Error marking network inventory dirty at location " + location + ": " + t.getMessage());
+            t.printStackTrace();
+        }
+
+        return false;
+    }
+
+    public void setupSlimefun() {
+        getLogger().info("[Networks] --- Starting Slimefun Setup ---");
+        NetworkSlimefunItems.setup();
+
         if (supportedPluginManager.isNetheopoiesis()) {
-            getLogger().info(getLocalizationService().getString("messages.integrations.found-netheopoiesis"));
             try {
                 NetheoPlants.setup();
             } catch (NoClassDefFoundError e) {
-                getLogger()
-                    .warning(getLocalizationService().getString("messages.integrations.not-found-netheopoiesis"));
+                getLogger().severe("Netheopoiesis must be updated to meet Networks' requirements.");
+            }
+        }
+        if (supportedPluginManager.isSlimeHud()) {
+            try {
+                HudCallbacks.setup();
+            } catch (NoClassDefFoundError e) {
+                getLogger().severe("SlimeHUD must be updated to meet Networks' requirements.");
             }
         }
     }
 
-    private void loadLibraries() {
-        LibraryManager libraryManager = new BukkitLibraryManager(this);
-        libraryManager.addMavenCentral();
-
-        getLogger().info("Cargando Pinyin");
-        Library pinyin = Library.builder()
-            .groupId("com{}github{}houbb")
-            .artifactId("pinyin")
-            .version("0.4.0")
-            .build();
-        libraryManager.loadLibrary(pinyin);
-
-        getLogger().info("Cargando opencc4j");
-        Library opencc4j = Library.builder()
-            .groupId("com{}github{}houbb")
-            .artifactId("opencc4j")
-            .version("1.14.0")
-            .build();
-        libraryManager.loadLibrary(opencc4j);
-    }
-
-    public MinecraftVersion getMCVersion() {
-        return minecraftVersion;
-    }
-
-    public void setupMetrics() {
-        final Metrics metrics = new Metrics(this, 13644);
-
-        AdvancedPie networksChart = new AdvancedPie("networks", () -> {
-            Map<String, Integer> networksMap = new HashMap<>();
-            networksMap.put(
-                "Number of networks", NetworkController.getNetworks().size());
-            return networksMap;
-        });
-
-        metrics.addCustomChart(networksChart);
-    }
-
-    @NotNull
+    @Nonnull
     @Override
     public JavaPlugin getJavaPlugin() {
         return this;
@@ -382,15 +253,27 @@ public class Networks extends JavaPlugin implements SlimefunAddon {
         return MessageFormat.format("https://github.com/{0}/{1}/issues/", this.username, this.repo);
     }
 
-    @NotNull
-    public String getWikiURL() {
-        return MessageFormat.format(
-            "https://slimefun-addons-wiki.guizhanss.cn/networks/{0}/{1}", this.username, this.repo);
+    @Nonnull
+    public static PluginManager getPluginManager() {
+        return Networks.getInstance().getServer().getPluginManager();
     }
 
-    public void debug(String message) {
-        if (getConfigManager().isDebug()) {
-            getLogger().warning("[DEBUG] " + message);
+    public static Networks getInstance() {
+        return Networks.instance;
+    }
+
+    public static SupportedPluginManager getSupportedPluginManager() {
+        return Networks.getInstance().supportedPluginManager;
+    }
+
+    public static ListenerManager getListenerManager() {
+        return Networks.getInstance().listenerManager;
+    }
+
+    /** Records a quantum state in the optional SQL mirror without changing Slimefun persistence. */
+    public void recordQuantumStorage(@Nonnull Location location, @Nonnull io.github.sefiraat.networks.network.stackcaches.QuantumCache cache) {
+        if (quantumStorageMirror != null) {
+            quantumStorageMirror.record(location, cache);
         }
     }
 }

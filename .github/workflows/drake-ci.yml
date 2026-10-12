@@ -1,9 +1,5 @@
 name: Drake CI
 
-# El proyecto se compila con Gradle desde que se importo la base NetworksExpansion (Igdrassil).
-# Este workflow seguia llamando a Maven (mvn test / package) y montando dependencias de
-# drakes-slimefun-labs para un pom.xml que ya no existe: fallaba en cada push antes de compilar nada.
-
 on:
   pull_request:
     branches: ["main"]
@@ -17,87 +13,95 @@ concurrency:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   test-and-build:
     name: Test · Build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout NetworksV6-drake
         uses: actions/checkout@v7
+
+      - name: Checkout foundry (drakes-slimefun-labs)
+        uses: actions/checkout@v7
+        with:
+          repository: DrakesCraft-Labs/drakes-slimefun-labs
+          path: drakes-slimefun-labs
+          ref: main
+
+      - name: Checkout Slimefun core
+        uses: actions/checkout@v7
+        with:
+          repository: DrakesCraft-Labs/Slimefun4-Drake
+          path: slimefun-core
+          ref: main
 
       - name: Set up Java 21
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
+          cache: maven
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Maven settings (GitHub Packages)
+        env:
+          MAVEN_USER: ${{ github.actor }}
+          MAVEN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
+            <servers>
+              <server>
+                <id>github-drakes-foundry</id>
+                <username>MAVEN_USER_PLACEHOLDER</username>
+                <password>MAVEN_TOKEN_PLACEHOLDER</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+          sed -i "s/MAVEN_USER_PLACEHOLDER/${MAVEN_USER}/g" ~/.m2/settings.xml
+          sed -i "s/MAVEN_TOKEN_PLACEHOLDER/${MAVEN_TOKEN}/g" ~/.m2/settings.xml
+
+      - name: Instalar dependencias Drake en .m2
+        working-directory: drakes-slimefun-labs
+        run: |
+          # Slimefun y Dough heredan de este POM aunque ahora vivan en repos separados.
+          mvn -B -ntp -N -DskipTests install
+          mvn -B -ntp -DskipTests -f sources/internal-metadata/patches/commons-lang-drake-patched/pom.xml install
+          mvn -B -ntp -DskipTests -f sources/dough-core/pom.xml install
+          mvn -B -ntp -DskipTests -Dslimefun.drake.version=11.0-Drake-1.21.11-SNAPSHOT -f ../slimefun-core/pom.xml install
+          mvn -B -ntp -DskipTests -f sources/batch-2-expansion/SefiLib/pom.xml install
+          mvn -B -ntp -Dmaven.test.skip=true -f sources/batch-2-expansion/InfinityLib/pom.xml install
+          mvn -B -ntp -Dmaven.test.skip=true -f sources/drakes-labs-autoupdate/pom.xml install
+          mvn -B -ntp -Dmaven.test.skip=true -f sources/repos-to-port/InfinityExpansion/pom.xml install
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Tests unitarios
-        run: ./gradlew --no-daemon test
+        run: mvn -B -ntp test
 
       - name: Empaquetar plugin
-        run: ./gradlew --no-daemon shadowJar
+        run: mvn -B -ntp -DskipTests package
 
       - name: Verificar JAR de producción
         run: |
-          JAR=$(ls build/libs/NetworksV6-Drake-*.jar)
-          test -f "$JAR"
-          jar tf "$JAR" | grep -q '^plugin.yml$'
-          jar tf "$JAR" | grep -q '^io/github/sefiraat/networks/Networks.class$'
-          jar tf "$JAR" | grep -q '^io/github/sefiraat/networks/bstats/bukkit/Metrics.class$'
-          ls -lh "$JAR"
+          test -f target/NetworksV6-Drake-v11-SNAPSHOT.jar
+          ! jar tf target/NetworksV6-Drake-v11-SNAPSHOT.jar | grep -q '^dev/drake/dough/'
+          jar tf target/NetworksV6-Drake-v11-SNAPSHOT.jar | grep -q '^dev/drake/sefilib/persistence/PersistenceTypes.class$'
+          jar tf target/NetworksV6-Drake-v11-SNAPSHOT.jar | grep -q '^io/github/sefiraat/networks/libs/xseries/'
+          jar tf target/NetworksV6-Drake-v11-SNAPSHOT.jar | grep -q '^io/github/sefiraat/networks/utils/ItemStackNormalizer.class$'
+          jar tf target/NetworksV6-Drake-v11-SNAPSHOT.jar | grep -q '^io/github/sefiraat/networks/network/SupportedRecipes.class$'
+          ls -lh target/NetworksV6-Drake-v11-SNAPSHOT.jar
 
       - name: Subir artefacto CI
         uses: actions/upload-artifact@v7
         with:
           name: NetworksV6-Drake-SNAPSHOT
-          path: build/libs/NetworksV6-Drake-*.jar
+          path: target/NetworksV6-Drake-v11-SNAPSHOT.jar
           if-no-files-found: error
-
-  # Un job por version de la API de Paper: cada una aparece como un check propio en el PR y en el
-  # commit, y si falla una se ve cual. fail-fast desactivado para que una version rota no cancele
-  # las demas.
-  paper-compat:
-    name: Paper API ${{ matrix.paper }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - paper: "1.21.11"
-            task: compileAgainstPaper1_21_11
-          - paper: "26.1"
-            task: compileAgainstPaper26_1
-          - paper: "26.2"
-            task: compileAgainstPaper26_2
-    steps:
-      - name: Checkout NetworksV6-drake
-        uses: actions/checkout@v7
-
-      # Java 25: la API de Paper 26.x esta compilada para Java 25 y la tarea compila con ese JDK.
-      - name: Set up Java 25
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: "25"
-
-      # El ultimo setup-java define JAVA_HOME: Gradle corre con Java 21, como el build normal.
-      - name: Set up Java 21
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-
-      - name: Compilar contra paper-api ${{ matrix.paper }}
-        run: >-
-          ./gradlew --no-daemon ${{ matrix.task }}
-          -Porg.gradle.java.installations.fromEnv=JAVA_HOME_21_X64,JAVA_HOME_25_X64
-          -Porg.gradle.java.installations.auto-download=false

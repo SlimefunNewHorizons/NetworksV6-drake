@@ -1,27 +1,30 @@
 package io.github.sefiraat.networks.slimefun.network;
 
-import com.balugaq.netex.api.enums.FeedbackType;
-import com.balugaq.netex.api.enums.MinecraftVersion;
-import com.balugaq.netex.api.interfaces.SoftCellBannable;
-import com.balugaq.netex.utils.Lang;
 import com.bgsoftware.wildchests.api.WildChestsAPI;
-import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.sefiraat.networks.NetworkStorage;
 import io.github.sefiraat.networks.Networks;
+import io.github.sefiraat.networks.listeners.BlockStateRefreshListener;
+import io.github.sefiraat.networks.network.NetworkRoot;
 import io.github.sefiraat.networks.network.NodeDefinition;
 import io.github.sefiraat.networks.network.NodeType;
-import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
-import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
-import io.github.thebusybiscuit.slimefun4.libraries.paperlib.PaperLib;
-import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
+import io.github.sefiraat.networks.utils.NetworkTransportUtils;
+import com.github.drakescraft_labs.slimefun4.api.MinecraftVersion;
+import com.github.drakescraft_labs.slimefun4.api.items.ItemGroup;
+import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItemStack;
+import com.github.drakescraft_labs.slimefun4.api.recipes.RecipeType;
+import com.github.drakescraft_labs.slimefun4.implementation.Slimefun;
+import com.github.drakescraft_labs.slimefun4.libraries.dough.protection.Interaction;
+import com.github.drakescraft_labs.slimefun4.legacy.api.BlockStorage;
+import com.github.drakescraft_labs.slimefun4.legacy.api.inventory.BlockMenu;
+import org.bukkit.Bukkit;
 import org.bukkit.Color;
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.Particle;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
-import org.bukkit.block.BrewingStand;
 import org.bukkit.inventory.BrewerInventory;
 import org.bukkit.inventory.FurnaceInventory;
 import org.bukkit.inventory.Inventory;
@@ -30,15 +33,18 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionData;
 import org.bukkit.potion.PotionType;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-@SuppressWarnings({"DuplicatedCode", "GrazieInspection"})
-public class NetworkVanillaGrabber extends NetworkDirectional implements SoftCellBannable {
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.UUID;
+
+/**
+ * Extrae de inventarios vanilla hacia la red. Evita atasco en OUTPUT (#235) inyectando directo cuando hay nodo.
+ */
+public class NetworkVanillaGrabber extends NetworkDirectional {
 
     private static final int[] BACKGROUND_SLOTS = new int[]{
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 15, 16, 17, 18, 20, 22, 23, 24, 26, 27, 28, 30, 31, 33, 34, 35, 36,
-        37, 38, 39, 40, 41, 42, 43, 44
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 15, 16, 17, 18, 20, 22, 23, 24, 26, 27, 28, 30, 31, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44
     };
     private static final int OUTPUT_SLOT = 25;
     private static final int NORTH_SLOT = 11;
@@ -48,156 +54,159 @@ public class NetworkVanillaGrabber extends NetworkDirectional implements SoftCel
     private static final int UP_SLOT = 14;
     private static final int DOWN_SLOT = 32;
 
-    public NetworkVanillaGrabber(
-        @NotNull ItemGroup itemGroup,
-        @NotNull SlimefunItemStack item,
-        @NotNull RecipeType recipeType,
-        ItemStack @NotNull [] recipe) {
+    public NetworkVanillaGrabber(ItemGroup itemGroup,
+                                 SlimefunItemStack item,
+                                 RecipeType recipeType,
+                                 ItemStack[] recipe
+    ) {
         super(itemGroup, item, recipeType, recipe, NodeType.GRABBER);
         this.getSlotsToDrop().add(OUTPUT_SLOT);
     }
 
     @Override
-    protected void onTick(@Nullable BlockMenu blockMenu, @NotNull Block block) {
+    protected void onTick(@Nullable BlockMenu blockMenu, @Nonnull Block block) {
         super.onTick(blockMenu, block);
         if (blockMenu != null) {
-            tryGrabItem(blockMenu);
+            final Location loc = blockMenu.getLocation();
+            if (isIdleOnCooldown(loc)) {
+                return;
+            }
+            if (!tryGrabItem(blockMenu)) {
+                deferIdle(loc);
+            }
         }
     }
 
-    @SuppressWarnings("removal")
-    private void tryGrabItem(@NotNull BlockMenu blockMenu) {
-
-        final ItemStack itemInSlot = blockMenu.getItemInSlot(OUTPUT_SLOT);
-
-        if (itemInSlot != null && itemInSlot.getType() != Material.AIR) {
-            sendFeedback(blockMenu.getLocation(), FeedbackType.ALREADY_HAS_ITEM);
-            return;
-        }
-
-        final NodeDefinition definition = NetworkStorage.getNode(blockMenu.getLocation());
+    private boolean tryGrabItem(@Nonnull BlockMenu blockMenu) {
+        final NodeDefinition definition = NetworkStorage.getAllNetworkObjects().get(blockMenu.getLocation());
 
         if (definition == null || definition.getNode() == null) {
-            sendFeedback(blockMenu.getLocation(), FeedbackType.NO_NETWORK_FOUND);
-            return;
+            return false;
         }
 
-        if (checkSoftCellBan(blockMenu.getLocation(), definition.getNode().getRoot())) {
-            return;
+        final NetworkRoot root = definition.getNode().getRoot();
+        final Location accessor = blockMenu.getLocation();
+
+        // Desatascar buffer interno antes de extraer mas (#235)
+        boolean flushed = flushOutputBuffer(blockMenu, root, accessor);
+
+        final ItemStack pending = blockMenu.getItemInSlot(OUTPUT_SLOT);
+        if (pending != null && pending.getType() != Material.AIR) {
+            return flushed;
         }
 
         final BlockFace direction = getCurrentDirection(blockMenu);
         final Block block = blockMenu.getBlock();
         final Block targetBlock = block.getRelative(direction);
-
-        /* Netex - #293
-        // No longer check permission
-        // Fix for early vanilla pusher release
-        final String ownerUUID = StorageCacheUtils.getData(block.getLocation(), OWNER_KEY);
-        if (ownerUUID == null) {
-            sendFeedback(block.getLocation(), FeedbackType.NO_OWNER_FOUND);
-            return;
+        final String owner = BlockStorage.getLocationInfo(block.getLocation(), OWNER_KEY);
+        if (owner == null) {
+            return false;
         }
-        final UUID uuid = UUID.fromString(ownerUUID);
-        final OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(uuid);
-
-        // dirty fix
+        final UUID uuid;
         try {
-            if (!Slimefun.getProtectionManager()
-                .hasPermission(offlinePlayer, targetBlock, Interaction.INTERACT_BLOCK)) {
-                sendFeedback(block.getLocation(), FeedbackType.NO_PERMISSION);
-                return;
-            }
-        } catch (NullPointerException ex) {
-            sendFeedback(block.getLocation(), FeedbackType.ERROR_OCCURRED);
-            return;
+            uuid = UUID.fromString(owner);
+        } catch (IllegalArgumentException e) {
+            return false;
         }
-        */
-        // Netex start - #287
-        if (StorageCacheUtils.getMenu(targetBlock.getLocation()) != null) {
-            return;
+        // Cacheado unos segundos: esta comprobacion consulta a WorldGuard y se repetia en cada
+        // tick de cada nodo para responder casi siempre lo mismo.
+        if (!io.github.sefiraat.networks.utils.OwnerAccessCache.canInteract(uuid, targetBlock)) {
+            return false;
         }
-        // Netex end - #287
 
-        final BlockState blockState = PaperLib.getBlockState(targetBlock, false).getState();
+        final BlockState blockState = BlockStateRefreshListener.getFreshState(targetBlock);
 
         if (!(blockState instanceof InventoryHolder holder)) {
-            sendFeedback(block.getLocation(), FeedbackType.NO_INVENTORY_FOUND);
-            return;
+            return false;
         }
 
-        boolean wildChests = Networks.getSupportedPluginManager().isWildChests();
-        boolean isChest = wildChests && WildChestsAPI.getChest(targetBlock.getLocation()) != null;
-
-        sendDebugMessage(block.getLocation(), String.format(Lang.getString("messages.debug.wildchests"), wildChests));
-        sendDebugMessage(block.getLocation(), String.format(Lang.getString("messages.debug.ischest"), isChest));
-
-        if (wildChests && isChest) {
-            sendDebugMessage(block.getLocation(), Lang.getString("messages.debug.wildchests-trigger-failed"));
-            sendFeedback(block.getLocation(), FeedbackType.PROTECTED_BLOCK);
-            return;
+        if (Networks.getSupportedPluginManager().isWildChests()
+                && WildChestsAPI.getChest(targetBlock.getLocation()) != null) {
+            return false;
         }
 
-        sendDebugMessage(block.getLocation(), Lang.getString("messages.debug.wildchests-trigger-success"));
         final Inventory inventory = holder.getInventory();
 
         if (inventory instanceof FurnaceInventory furnaceInventory) {
-            final ItemStack furnaceInventoryResult = furnaceInventory.getResult();
-            final ItemStack furnaceInventoryFuel = furnaceInventory.getFuel();
-            grabItem(blockMenu, furnaceInventoryResult);
-
-            if (furnaceInventoryFuel != null && furnaceInventoryFuel.getType() == Material.BUCKET) {
-                grabItem(blockMenu, furnaceInventoryFuel);
+            if (tryPullFromInventory(blockMenu, root, accessor, furnaceInventory, 2) > 0) {
+                return true;
             }
-
+            final ItemStack fuel = furnaceInventory.getFuel();
+            if (fuel != null && fuel.getType() == Material.BUCKET) {
+                if (tryPullFromInventory(blockMenu, root, accessor, furnaceInventory, 1) > 0) {
+                    return true;
+                }
+            }
         } else if (inventory instanceof BrewerInventory brewerInventory) {
-            if (!(blockState instanceof BrewingStand brewingStand)) return;
-            if (brewingStand.getBrewingTime() > 0) return;
-
             for (int i = 0; i < 3; i++) {
-                final ItemStack stack = brewerInventory.getContents()[i];
-                if (stack != null && stack.getType() != Material.AIR) {
-                    if (stack.getItemMeta() instanceof PotionMeta potionMeta) {
-                        if (Networks.getInstance().getMCVersion().isAtLeast(MinecraftVersion.V1_20_5)) {
-                            if (potionMeta.getBasePotionType() != PotionType.WATER) {
-                                grabItem(blockMenu, stack);
-                                break;
-                            }
-                        } else {
-                            PotionData bpd = potionMeta.getBasePotionData();
-                            if (bpd != null && bpd.getType() != PotionType.WATER) {
-                                grabItem(blockMenu, stack);
-                                break;
-                            }
-                        }
-                    } else {
-                        grabItem(blockMenu, stack);
-                        break;
+                final ItemStack stack = brewerInventory.getItem(i);
+                if (stack == null || stack.getType() == Material.AIR) {
+                    continue;
+                }
+                // Guard: solo procesar items con PotionMeta; ingredientes de addons pueden no tenerla (#NPE-brewer).
+                if (!(stack.getItemMeta() instanceof PotionMeta potionMeta)) {
+                    if (tryPullFromInventory(blockMenu, root, accessor, brewerInventory, i) > 0) {
+                        return true;
+                    }
+                    continue;
+                }
+                if (Slimefun.getMinecraftVersion().isAtLeast(MinecraftVersion.MINECRAFT_1_20_5)) {
+                    if (potionMeta.getBasePotionType() != PotionType.WATER
+                            && tryPullFromInventory(blockMenu, root, accessor, brewerInventory, i) > 0) {
+                        return true;
+                    }
+                } else {
+                    PotionData bpd = potionMeta.getBasePotionData();
+                    if (bpd != null && bpd.getType() != PotionType.WATER
+                            && tryPullFromInventory(blockMenu, root, accessor, brewerInventory, i) > 0) {
+                        return true;
                     }
                 }
             }
         } else {
-            for (ItemStack stack : inventory.getContents()) {
-                if (grabItem(blockMenu, stack)) {
-                    break;
+            for (int slot = 0; slot < inventory.getSize(); slot++) {
+                if (tryPullFromInventory(blockMenu, root, accessor, inventory, slot) > 0) {
+                    return true;
                 }
             }
         }
+        return flushed;
     }
 
-    private boolean grabItem(@NotNull BlockMenu blockMenu, @Nullable ItemStack stack) {
-        if (stack != null && stack.getType() != Material.AIR) {
-            blockMenu.replaceExistingItem(OUTPUT_SLOT, stack.clone());
-            stack.setAmount(0);
-            sendFeedback(blockMenu.getLocation(), FeedbackType.WORKING);
-            return true;
-        } else {
+    private boolean flushOutputBuffer(@Nonnull BlockMenu blockMenu, @Nonnull NetworkRoot root, @Nonnull Location accessor) {
+        final ItemStack pending = blockMenu.getItemInSlot(OUTPUT_SLOT);
+        if (pending == null || pending.getType() == Material.AIR) {
             return false;
         }
+        if (NetworkTransportUtils.flushMenuSlotToNetwork(root, accessor, blockMenu, OUTPUT_SLOT) > 0) {
+            blockMenu.markDirty();
+            return true;
+        }
+        return false;
     }
 
+    private int tryPullFromInventory(
+            @Nonnull BlockMenu blockMenu,
+            @Nonnull NetworkRoot root,
+            @Nonnull Location accessor,
+            @Nonnull Inventory inventory,
+            int slot) {
+        final int consumed = NetworkTransportUtils.pullFromInventory(root, accessor, inventory, slot);
+        if (consumed > 0) {
+            blockMenu.markDirty();
+            final NodeDefinition definition = NetworkStorage.getAllNetworkObjects().get(accessor);
+            if (definition != null
+                    && definition.getNode() != null
+                    && definition.getNode().getRoot().isDisplayParticles()) {
+                showParticle(accessor, getCurrentDirection(blockMenu));
+            }
+        }
+        return consumed;
+    }
+
+    @Nonnull
     @Override
-    protected int @NotNull [] getBackgroundSlots() {
+    protected int[] getBackgroundSlots() {
         return BACKGROUND_SLOTS;
     }
 
@@ -242,7 +251,7 @@ public class NetworkVanillaGrabber extends NetworkDirectional implements SoftCel
     }
 
     @Override
-    protected Particle.@NotNull DustOptions getDustOptions() {
+    protected Particle.DustOptions getDustOptions() {
         return new Particle.DustOptions(Color.MAROON, 1);
     }
 }

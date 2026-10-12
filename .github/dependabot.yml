@@ -1,11 +1,30 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
-# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
-
 version: 2
 updates:
-  - package-ecosystem: "gradle" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  - package-ecosystem: "github-actions"
+    directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+      day: "monday"
+    open-pull-requests-limit: 1
+    groups:
+      actions-all:
+        patterns: ["*"]
+
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "tuesday"
+    open-pull-requests-limit: 1
+    groups:
+      maven-prod:
+        dependency-type: "production"
+        update-types: ["patch", "minor"]
+      maven-dev:
+        dependency-type: "development"
+        update-types: ["patch", "minor"]
+    ignore:
+      - dependency-name: "com.github.drakescraft_labs:*"
+      - dependency-name: "io.papermc.paper:paper-api"
+      - dependency-name: "org.spigotmc:spigot-api"
+      - dependency-name: "org.bukkit:bukkit"

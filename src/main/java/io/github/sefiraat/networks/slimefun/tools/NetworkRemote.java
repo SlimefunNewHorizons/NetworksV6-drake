@@ -1,151 +1,126 @@
 package io.github.sefiraat.networks.slimefun.tools;
 
-import com.balugaq.netex.utils.Lang;
-import com.jeff_media.morepersistentdatatypes.DataType;
-import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunBlockData;
-import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
-import com.ytdd9527.networksexpansion.core.items.SpecialSlimefunItem;
-import com.ytdd9527.networksexpansion.implementation.machines.networks.advanced.NetworkCraftingGridNewStyle;
-import com.ytdd9527.networksexpansion.implementation.machines.networks.advanced.NetworkGridNewStyle;
-import io.github.sefiraat.networks.slimefun.network.grid.NetworkCraftingGrid;
+import dev.drake.sefilib.persistence.PersistenceTypes;
+import org.bukkit.persistence.PersistentDataType;
 import io.github.sefiraat.networks.slimefun.network.grid.NetworkGrid;
 import io.github.sefiraat.networks.utils.Keys;
 import io.github.sefiraat.networks.utils.Theme;
 import io.github.sefiraat.networks.utils.datatypes.DataTypeMethods;
-import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
-import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
-import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.github.thebusybiscuit.slimefun4.libraries.dough.protection.Interaction;
-import lombok.Getter;
-import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
+import com.github.drakescraft_labs.slimefun4.api.events.PlayerRightClickEvent;
+import com.github.drakescraft_labs.slimefun4.api.items.ItemGroup;
+import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItem;
+import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItemStack;
+import com.github.drakescraft_labs.slimefun4.api.recipes.RecipeType;
+import com.github.drakescraft_labs.slimefun4.core.handlers.ItemUseHandler;
+import com.github.drakescraft_labs.slimefun4.implementation.Slimefun;
+import com.github.drakescraft_labs.slimefun4.libraries.dough.protection.Interaction;
+import com.github.drakescraft_labs.slimefun4.libraries.dough.protection.ProtectionManager;
+import com.github.drakescraft_labs.slimefun4.legacy.api.BlockStorage;
+import com.github.drakescraft_labs.slimefun4.legacy.api.inventory.BlockMenu;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.jetbrains.annotations.NotNull;
 
+import javax.annotation.Nonnull;
 import java.util.Optional;
 
-@Getter
-public class NetworkRemote extends SpecialSlimefunItem {
-
-    private static final String WIKI_PAGE = "tools/network-remote";
+public class NetworkRemote extends SlimefunItem {
 
     private static final NamespacedKey KEY = Keys.newKey("location");
-    private static final int[] RANGES = new int[]{150, 500, 0, -1};
+    private static final int[] RANGES = new int[] {
+            150,
+            500,
+            0,
+            -1
+    };
 
     private final int range;
 
-    public NetworkRemote(
-        @NotNull ItemGroup itemGroup,
-        @NotNull SlimefunItemStack item,
-        @NotNull RecipeType recipeType,
-        ItemStack @NotNull [] recipe,
-        int range) {
+    public NetworkRemote(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe,
+            int range) {
         super(itemGroup, item, recipeType, recipe);
         this.range = range;
-        addItemHandler((ItemUseHandler) e -> {
-            final Player player = e.getPlayer();
-            if (player.isSneaking()) {
-                final Optional<Block> optional = e.getClickedBlock();
-                if (optional.isPresent()) {
-                    final Block block = optional.get();
-                    final SlimefunItem slimefunItem = StorageCacheUtils.getSfItem(block.getLocation());
-                    if (Slimefun.getProtectionManager().hasPermission(player, block, Interaction.INTERACT_BLOCK)
-                        && (slimefunItem instanceof NetworkGrid
-                        || slimefunItem instanceof NetworkCraftingGrid
-                        || slimefunItem instanceof NetworkGridNewStyle
-                        || slimefunItem instanceof NetworkCraftingGridNewStyle)) {
-                        setGrid(e.getItem(), block, player);
-                    } else {
-                        player.sendMessage(
-                            Lang.getString("messages.unsupported-operation.remote.must_connect_to_grid"));
+        addItemHandler(
+                new ItemUseHandler() {
+                    @Override
+                    public void onRightClick(PlayerRightClickEvent e) {
+                        final Player player = e.getPlayer();
+                        if (player.isSneaking()) {
+                            final Optional<Block> optional = e.getClickedBlock();
+                            if (optional.isPresent()) {
+                                final Block block = optional.get();
+                                final SlimefunItem slimefunItem = BlockStorage.check(block);
+                                if (Slimefun.getProtectionManager().hasPermission(Bukkit.getOfflinePlayer(player.getUniqueId()), block,
+                                        Interaction.INTERACT_BLOCK)
+                                        && slimefunItem instanceof NetworkGrid) {
+                                    setGrid(e.getItem(), block, player);
+                                } else {
+                                    player.sendMessage(
+                                            Theme.ERROR + "Must be set to a Network Grid (not crafting grid).");
+                                }
+                            }
+                        } else {
+                            tryOpenGrid(e.getItem(), player, NetworkRemote.this.range);
+                        }
+                        e.cancel();
                     }
-                }
-            } else {
-                tryOpenGrid(e.getItem(), player, NetworkRemote.this.range);
-            }
-            e.cancel();
-        });
+                });
     }
 
-    public static void setGrid(@NotNull ItemStack itemStack, @NotNull Block block, @NotNull Player player) {
+    public static void setGrid(@Nonnull ItemStack itemStack, @Nonnull Block block, @Nonnull Player player) {
         final ItemMeta itemMeta = itemStack.getItemMeta();
-        if (itemMeta == null) {
-            return;
-        }
-        DataTypeMethods.setCustom(itemMeta, KEY, DataType.LOCATION, block.getLocation());
+        DataTypeMethods.setCustom(itemMeta, KEY, PersistenceTypes.LOCATION, block.getLocation());
         itemStack.setItemMeta(itemMeta);
-        player.sendMessage(Lang.getString("messages.completed-operation.remote.bound_to_grid"));
+        player.sendMessage(Theme.SUCCESS + "Grid has been bound to the remote.");
     }
 
-    public static void tryOpenGrid(@NotNull ItemStack itemStack, @NotNull Player player, int range) {
+    public static void tryOpenGrid(@Nonnull ItemStack itemStack, @Nonnull Player player, int range) {
         final ItemMeta itemMeta = itemStack.getItemMeta();
-        if (itemMeta == null) {
-            return;
-        }
-        final Location location = DataTypeMethods.getCustom(itemMeta, KEY, DataType.LOCATION);
+        final Location location = DataTypeMethods.getCustom(itemMeta, KEY, PersistenceTypes.LOCATION);
 
         if (location != null) {
 
             if (!location.getWorld().isChunkLoaded(location.getBlockX() / 16, location.getBlockZ() / 16)) {
-                player.sendMessage(Lang.getString("messages.unsupported-operation.remote.grid_not_loaded"));
+                player.sendMessage(Theme.ERROR + "The bound grid is not loaded.");
                 return;
             }
 
             final boolean sameDimension = location.getWorld().equals(player.getWorld());
 
             if (range == -1
-                || range == 0 && sameDimension
-                || sameDimension && player.getLocation().distance(location) <= range) {
+                    || range == 0 && sameDimension
+                    || sameDimension && player.getLocation().distance(location) <= range) {
                 openGrid(location, player);
             } else {
-                player.sendMessage(Lang.getString("messages.unsupported-operation.remote.grid_not_in_range"));
+                player.sendMessage(Theme.ERROR + "The bound grid is not within reach.");
             }
         } else {
-            player.sendMessage(Lang.getString("messages.unsupported-operation.remote.no_grid_bound"));
+            player.sendMessage(Theme.ERROR + "Remote is not bound to a grid.");
         }
     }
 
-    public static void openGrid(@NotNull Location location, @NotNull Player player) {
-        SlimefunBlockData blockData = StorageCacheUtils.getBlock(location);
-        if (blockData == null) {
-            player.sendMessage(Theme.ERROR + "No se encontro la red vinculada");
-            return;
+    public static void openGrid(@Nonnull Location location, @Nonnull Player player) {
+        BlockMenu blockMenu = BlockStorage.getInventory(location);
+        SlimefunItem slimefunItem = BlockStorage.check(location);
+        if (slimefunItem instanceof NetworkGrid
+                && blockMenu != null
+                && Slimefun.getProtectionManager().hasPermission(Bukkit.getOfflinePlayer(player.getUniqueId()), location, Interaction.INTERACT_BLOCK)) {
+            blockMenu.open(player);
+        } else {
+            player.sendMessage(Theme.ERROR + "The bound grid can no longer be found.");
         }
+    }
 
-        SlimefunItem item = SlimefunItem.getById(blockData.getSfId());
-        StorageCacheUtils.executeAfterLoad(
-            blockData,
-            () -> {
-                if ((item instanceof NetworkGrid
-                    || item instanceof NetworkCraftingGrid
-                    || item instanceof NetworkGridNewStyle)
-                    && (player.hasPermission("slimefun.inventory.bypass")
-                    || Slimefun.getProtectionManager()
-                    .hasPermission(player, location, Interaction.INTERACT_BLOCK))) {
-                    BlockMenu blockMenu = blockData.getBlockMenu();
-                    if (blockMenu != null) {
-                        blockMenu.open(player);
-                    }
-                } else {
-                    player.sendMessage(Lang.getString("messages.unsupported-operation.remote.not_a_grid_found"));
-                }
-            },
-            false);
+    public int getRange() {
+        return this.range;
     }
 
     public static int[] getRanges() {
         return RANGES;
-    }
-
-    @Override
-    public void postRegister() {
-        addWikiPage(WIKI_PAGE);
     }
 }

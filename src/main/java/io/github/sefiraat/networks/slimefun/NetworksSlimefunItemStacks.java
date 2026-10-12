@@ -1,358 +1,1018 @@
 package io.github.sefiraat.networks.slimefun;
 
-import com.balugaq.netex.utils.Lang;
-import com.balugaq.netex.utils.NetworksVersionedEnchantment;
-import com.ytdd9527.networksexpansion.utils.itemstacks.ItemStackUtil;
+import com.cryptomorin.xseries.XEnchantment;
+import io.github.sefiraat.networks.slimefun.network.NetworkQuantumStorage;
+import io.github.sefiraat.networks.slimefun.tools.NetworkRemote;
 import io.github.sefiraat.networks.utils.Theme;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
-import io.github.thebusybiscuit.slimefun4.libraries.dough.collections.Pair;
-import io.github.thebusybiscuit.slimefun4.utils.LoreBuilder;
+import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItemStack;
+import com.github.drakescraft_labs.slimefun4.libraries.dough.collections.Pair;
 import lombok.experimental.UtilityClass;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.enchantments.Enchantment;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
-import org.jetbrains.annotations.NotNull;
+import org.bukkit.inventory.meta.ItemMeta;
+
+import javax.annotation.Nonnull;
+import java.text.MessageFormat;
 
 /**
- * Creating SlimefunItemStacks here due to some items being created in Enums so this will
+ * Creating SlimefunItemstacks here due to some items being created in Enums so this will
  * act as a one-stop-shop for the stacks themselves.
  */
 @UtilityClass
 public class NetworksSlimefunItemStacks {
 
     // Materials
-    public static final @NotNull SlimefunItemStack SYNTHETIC_EMERALD_SHARD;
-    public static final @NotNull SlimefunItemStack OPTIC_GLASS;
-    public static final @NotNull SlimefunItemStack OPTIC_CABLE;
-    public static final @NotNull SlimefunItemStack OPTIC_STAR;
-    public static final @NotNull SlimefunItemStack RADIOACTIVE_OPTIC_STAR;
-    public static final @NotNull SlimefunItemStack SHRINKING_BASE;
-    public static final @NotNull SlimefunItemStack SIMPLE_NANOBOTS;
-    public static final @NotNull SlimefunItemStack ADVANCED_NANOBOTS;
-    public static final @NotNull SlimefunItemStack AI_CORE;
-    public static final @NotNull SlimefunItemStack EMPOWERED_AI_CORE;
-    public static final @NotNull SlimefunItemStack PRISTINE_AI_CORE;
-    public static final @NotNull SlimefunItemStack INTERDIMENSIONAL_PRESENCE;
+    public static final SlimefunItemStack SYNTHETIC_EMERALD_SHARD;
+    public static final SlimefunItemStack OPTIC_GLASS;
+    public static final SlimefunItemStack OPTIC_CABLE;
+    public static final SlimefunItemStack OPTIC_STAR;
+    public static final SlimefunItemStack RADIOACTIVE_OPTIC_STAR;
+    public static final SlimefunItemStack SHRINKING_BASE;
+    public static final SlimefunItemStack SIMPLE_NANOBOTS;
+    public static final SlimefunItemStack ADVANCED_NANOBOTS;
+    public static final SlimefunItemStack AI_CORE;
+    public static final SlimefunItemStack EMPOWERED_AI_CORE;
+    public static final SlimefunItemStack PRISTINE_AI_CORE;
+    public static final SlimefunItemStack INTERDIMENSIONAL_PRESENCE;
 
     // Network Items
-    public static final @NotNull SlimefunItemStack NETWORK_CONTROLLER;
-    public static final @NotNull SlimefunItemStack NETWORK_BRIDGE;
-    public static final @NotNull SlimefunItemStack NETWORK_MONITOR;
-    public static final @NotNull SlimefunItemStack NETWORK_IMPORT;
-    public static final @NotNull SlimefunItemStack NETWORK_EXPORT;
-    public static final @NotNull SlimefunItemStack NETWORK_GRABBER;
-    public static final @NotNull SlimefunItemStack NETWORK_PUSHER;
-    public static final @NotNull SlimefunItemStack NETWORK_MORE_PUSHER;
-    public static final @NotNull SlimefunItemStack NETWORK_BEST_PUSHER;
-    public static final @NotNull SlimefunItemStack NETWORK_CONTROL_X;
-    public static final @NotNull SlimefunItemStack NETWORK_CONTROL_V;
-    public static final @NotNull SlimefunItemStack NETWORK_VACUUM;
-    public static final @NotNull SlimefunItemStack NETWORK_VANILLA_GRABBER;
-    public static final @NotNull SlimefunItemStack NETWORK_VANILLA_PUSHER;
-    public static final @NotNull SlimefunItemStack NETWORK_WIRELESS_TRANSMITTER;
-    public static final @NotNull SlimefunItemStack NETWORK_WIRELESS_RECEIVER;
-    public static final @NotNull SlimefunItemStack NETWORK_PURGER;
-    public static final @NotNull SlimefunItemStack NETWORK_GRID;
-    public static final @NotNull SlimefunItemStack NETWORK_CRAFTING_GRID;
-    public static final @NotNull SlimefunItemStack NETWORK_CELL;
-    public static final @NotNull SlimefunItemStack NETWORK_GREEDY_BLOCK;
-    public static final @NotNull SlimefunItemStack NETWORK_QUANTUM_WORKBENCH;
-    public static final @NotNull SlimefunItemStack NETWORK_QUANTUM_STORAGE_0;
-    public static final @NotNull SlimefunItemStack NETWORK_QUANTUM_STORAGE_1;
-    public static final @NotNull SlimefunItemStack NETWORK_QUANTUM_STORAGE_2;
-    public static final @NotNull SlimefunItemStack NETWORK_QUANTUM_STORAGE_3;
-    public static final @NotNull SlimefunItemStack NETWORK_QUANTUM_STORAGE_4;
-    public static final @NotNull SlimefunItemStack NETWORK_QUANTUM_STORAGE_5;
-    public static final @NotNull SlimefunItemStack NETWORK_QUANTUM_STORAGE_6;
-    public static final @NotNull SlimefunItemStack NETWORK_QUANTUM_STORAGE_7;
-    public static final @NotNull SlimefunItemStack NETWORK_QUANTUM_STORAGE_8;
-    public static final @NotNull SlimefunItemStack NETWORK_QUANTUM_STORAGE_9;
-    public static final @NotNull SlimefunItemStack NETWORK_QUANTUM_STORAGE_10;
-    public static final @NotNull SlimefunItemStack NETWORK_QUANTUM_STORAGE_11;
-    public static final @NotNull SlimefunItemStack NETWORK_QUANTUM_STORAGE_12;
-    public static final @NotNull SlimefunItemStack NETWORK_QUANTUM_STORAGE_13;
-    public static final @NotNull SlimefunItemStack NETWORK_QUANTUM_STORAGE_14;
-    public static final @NotNull SlimefunItemStack NETWORK_CAPACITOR_1;
-    public static final @NotNull SlimefunItemStack NETWORK_CAPACITOR_2;
-    public static final @NotNull SlimefunItemStack NETWORK_CAPACITOR_3;
-    public static final @NotNull SlimefunItemStack NETWORK_CAPACITOR_4;
-    public static final @NotNull SlimefunItemStack NETWORK_POWER_OUTLET_1;
-    public static final @NotNull SlimefunItemStack NETWORK_POWER_OUTLET_2;
-    public static final @NotNull SlimefunItemStack NETWORK_POWER_DISPLAY;
-    public static final @NotNull SlimefunItemStack NETWORK_RECIPE_ENCODER;
-    public static final @NotNull SlimefunItemStack NETWORK_AUTO_CRAFTER;
-    public static final @NotNull SlimefunItemStack NETWORK_AUTO_CRAFTER_WITHHOLDING;
+    public static final SlimefunItemStack NETWORK_CONTROLLER;
+    public static final SlimefunItemStack NETWORK_BRIDGE;
+    public static final SlimefunItemStack NETWORK_MONITOR;
+    public static final SlimefunItemStack NETWORK_INPUT_ONLY_MONITOR;
+    public static final SlimefunItemStack NETWORK_OUTPUT_ONLY_MONITOR;
+    public static final SlimefunItemStack NETWORK_IMPORT;
+    public static final SlimefunItemStack NETWORK_ADVANCED_IMPORT;
+    public static final SlimefunItemStack NETWORK_EXPORT;
+    public static final SlimefunItemStack NETWORK_ADVANCED_EXPORT;
+    public static final SlimefunItemStack NETWORK_GRABBER;
+    public static final SlimefunItemStack NETWORK_ADVANCED_GRABBER;
+    public static final SlimefunItemStack NETWORK_PUSHER;
+    public static final SlimefunItemStack NETWORK_ADVANCED_PUSHER;
+    public static final SlimefunItemStack NETWORK_CONTROL_X;
+    public static final SlimefunItemStack NETWORK_CONTROL_V;
+    public static final SlimefunItemStack NETWORK_VACUUM;
+    public static final SlimefunItemStack NETWORK_ADVANCED_VACUUM;
+    public static final SlimefunItemStack NETWORK_VANILLA_GRABBER;
+    public static final SlimefunItemStack NETWORK_VANILLA_PUSHER;
+    public static final SlimefunItemStack NETWORK_WIRELESS_TRANSMITTER;
+    public static final SlimefunItemStack NETWORK_WIRELESS_RECEIVER;
+    public static final SlimefunItemStack NETWORK_PURGER;
+    public static final SlimefunItemStack NETWORK_ADVANCED_PURGER;
+    public static final SlimefunItemStack NETWORK_GRID;
+    public static final SlimefunItemStack NETWORK_CRAFTING_GRID;
+    public static final SlimefunItemStack NETWORK_CELL;
+    public static final SlimefunItemStack NETWORK_GREEDY_BLOCK;
+    public static final SlimefunItemStack NETWORK_ADVANCED_GREEDY_BLOCK;
+    public static final SlimefunItemStack NETWORK_QUANTUM_WORKBENCH;
+    public static final SlimefunItemStack NETWORK_QUANTUM_STORAGE_1;
+    public static final SlimefunItemStack NETWORK_QUANTUM_STORAGE_2;
+    public static final SlimefunItemStack NETWORK_QUANTUM_STORAGE_3;
+    public static final SlimefunItemStack NETWORK_QUANTUM_STORAGE_4;
+    public static final SlimefunItemStack NETWORK_QUANTUM_STORAGE_5;
+    public static final SlimefunItemStack NETWORK_QUANTUM_STORAGE_6;
+    public static final SlimefunItemStack NETWORK_QUANTUM_STORAGE_7;
+    public static final SlimefunItemStack NETWORK_QUANTUM_STORAGE_8;
+    public static final SlimefunItemStack NETWORK_CAPACITOR_1;
+    public static final SlimefunItemStack NETWORK_CAPACITOR_2;
+    public static final SlimefunItemStack NETWORK_CAPACITOR_3;
+    public static final SlimefunItemStack NETWORK_CAPACITOR_4;
+    public static final SlimefunItemStack NETWORK_POWER_OUTLET_1;
+    public static final SlimefunItemStack NETWORK_POWER_OUTLET_2;
+    public static final SlimefunItemStack NETWORK_POWER_DISPLAY;
+    public static final SlimefunItemStack NETWORK_RECIPE_ENCODER;
+    public static final SlimefunItemStack NETWORK_AUTO_CRAFTER;
+    public static final SlimefunItemStack NETWORK_AUTO_CRAFTER_WITHHOLDING;
+    public static final SlimefunItemStack NETWORK_ADVANCED_AUTO_CRAFTER;
+    public static final SlimefunItemStack NETWORK_ADVANCED_AUTO_CRAFTER_WITHHOLDING;
+    public static final SlimefunItemStack NETWORK_CRAFTER_MATRIX;
 
     // Tools
-    public static final @NotNull SlimefunItemStack CRAFTING_BLUEPRINT;
-    public static final @NotNull SlimefunItemStack NETWORK_PROBE;
-    public static final @NotNull SlimefunItemStack NETWORK_REMOTE;
-    public static final @NotNull SlimefunItemStack NETWORK_REMOTE_EMPOWERED;
-    public static final @NotNull SlimefunItemStack NETWORK_REMOTE_PRISTINE;
-    public static final @NotNull SlimefunItemStack NETWORK_REMOTE_ULTIMATE;
-    public static final @NotNull SlimefunItemStack NETWORK_CRAYON;
-    public static final @NotNull SlimefunItemStack NETWORK_CONFIGURATOR;
-    public static final @NotNull SlimefunItemStack NETWORK_WIRELESS_CONFIGURATOR;
-    public static final @NotNull SlimefunItemStack NETWORK_RAKE_1;
-    public static final @NotNull SlimefunItemStack NETWORK_RAKE_2;
-    public static final @NotNull SlimefunItemStack NETWORK_RAKE_3;
-    public static final @NotNull SlimefunItemStack NETWORK_DEBUG_STICK;
+    public static final SlimefunItemStack CRAFTING_BLUEPRINT;
+    public static final SlimefunItemStack NETWORK_PROBE;
+    public static final SlimefunItemStack NETWORK_REMOTE;
+    public static final SlimefunItemStack NETWORK_REMOTE_EMPOWERED;
+    public static final SlimefunItemStack NETWORK_REMOTE_PRISTINE;
+    public static final SlimefunItemStack NETWORK_REMOTE_ULTIMATE;
+    public static final SlimefunItemStack NETWORK_CRAYON;
+    public static final SlimefunItemStack NETWORK_CONFIGURATOR;
+    public static final SlimefunItemStack NETWORK_WIRELESS_CONFIGURATOR;
+    public static final SlimefunItemStack NETWORK_RAKE_1;
+    public static final SlimefunItemStack NETWORK_RAKE_2;
+    public static final SlimefunItemStack NETWORK_RAKE_3;
+    public static final SlimefunItemStack NETWORK_DEBUG_STICK;
 
     static {
+
         SYNTHETIC_EMERALD_SHARD = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_SYNTHETIC_EMERALD_SHARD", new ItemStack(Material.LIME_DYE)), Theme.CRAFTING);
+            "NTW_SYNTHETIC_EMERALD_SHARD",
+            new ItemStack(Material.LIME_DYE),
+            Theme.CRAFTING,
+            "Synthetic Emerald Shard",
+            "A shard of synthetic emerald that",
+            "is the backbone for information",
+            "transference."
+        );
 
         OPTIC_GLASS = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_OPTIC_GLASS", new ItemStack(Material.GLASS)), Theme.CRAFTING);
+            "NTW_OPTIC_GLASS",
+            new ItemStack(Material.GLASS),
+            Theme.CRAFTING,
+            "Optic Glass",
+            "A simple glass that is able to",
+            "transfer small bits of information."
+        );
 
         OPTIC_CABLE = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_OPTIC_CABLE", new ItemStack(Material.STRING)), Theme.CRAFTING);
+            "NTW_OPTIC_CABLE",
+            new ItemStack(Material.STRING),
+            Theme.CRAFTING,
+            "Optic Cable",
+            "A simple wire that is able to",
+            "transfer large bits of information."
+        );
 
         OPTIC_STAR = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_OPTIC_STAR", new ItemStack(Material.NETHER_STAR)), Theme.CRAFTING);
+            "NTW_OPTIC_STAR",
+            new ItemStack(Material.NETHER_STAR),
+            Theme.CRAFTING,
+            "Optic Star",
+            "A crystalline star structure that",
+            "can transfer large bits of information."
+        );
 
         RADIOACTIVE_OPTIC_STAR = Theme.themedSlimefunItemStack(
-            Lang.getItem(
-                "NTW_RADIOACTIVE_OPTIC_STAR",
-                ItemStackUtil.getPreEnchantedItemStack(
-                    Material.NETHER_STAR, true, new Pair<>(NetworksVersionedEnchantment.GLOW, 1))),
-            Theme.CRAFTING);
+            "NTW_RADIOACTIVE_OPTIC_STAR",
+            getPreEnchantedItemStack(Material.NETHER_STAR, true, new Pair<>(XEnchantment.POWER.get(), 1)),
+            Theme.CRAFTING,
+            "Radioactive Optic Star",
+            "A crystalline star structure that",
+            "can store insane amounts of information."
+        );
 
         SHRINKING_BASE = Theme.themedSlimefunItemStack(
-            Lang.getItem(
-                "NTW_SHRINKING_BASE",
-                ItemStackUtil.getPreEnchantedItemStack(
-                    Material.PISTON, true, new Pair<>(NetworksVersionedEnchantment.GLOW, 1))),
-            Theme.CRAFTING);
+            "NTW_SHRINKING_BASE",
+            getPreEnchantedItemStack(Material.PISTON, true, new Pair<>(XEnchantment.POWER.get(), 1)),
+            Theme.CRAFTING,
+            "Shrinking Base",
+            "An advanced construct able to make",
+            "big things go small."
+        );
 
         SIMPLE_NANOBOTS = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_SIMPLE_NANOBOTS", new ItemStack(Material.MELON_SEEDS)), Theme.CRAFTING);
+            "NTW_SIMPLE_NANOBOTS",
+            new ItemStack(Material.MELON_SEEDS),
+            Theme.CRAFTING,
+            "Simple Nanobots",
+            "Teeny Tiny little bots that can",
+            "help you with precise tasks."
+        );
 
         ADVANCED_NANOBOTS = Theme.themedSlimefunItemStack(
-            Lang.getItem(
-                "NTW_ADVANCED_NANOBOTS",
-                ItemStackUtil.getPreEnchantedItemStack(
-                    Material.MELON_SEEDS, true, new Pair<>(NetworksVersionedEnchantment.GLOW, 1))),
-            Theme.CRAFTING);
+            "NTW_ADVANCED_NANOBOTS",
+            getPreEnchantedItemStack(Material.MELON_SEEDS, true, new Pair<>(XEnchantment.POWER.get(), 1)),
+            Theme.CRAFTING,
+            "Advanced Nanobots",
+            "Teeny Tiny little bots that can",
+            "help you with precise tasks.",
+            "This version is smarter and faster."
+        );
 
         AI_CORE = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_AI_CORE", new ItemStack(Material.BRAIN_CORAL_BLOCK)), Theme.CRAFTING);
+            "NTW_AI_CORE",
+            new ItemStack(Material.BRAIN_CORAL_BLOCK),
+            Theme.CRAFTING,
+            "A.I. Core",
+            "A burgeoning artificial intelligence",
+            "resides within this weak shell."
+        );
 
         EMPOWERED_AI_CORE = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_EMPOWERED_AI_CORE", new ItemStack(Material.TUBE_CORAL_BLOCK)), Theme.CRAFTING);
+            "NTW_EMPOWERED_AI_CORE",
+            new ItemStack(Material.TUBE_CORAL_BLOCK),
+            Theme.CRAFTING,
+            "Empowered A.I. Core",
+            "A flourishing artificial intelligence",
+            "resides within this shell."
+        );
 
         PRISTINE_AI_CORE = Theme.themedSlimefunItemStack(
-            Lang.getItem(
-                "NTW_PRISTINE_AI_CORE",
-                ItemStackUtil.getPreEnchantedItemStack(
-                    Material.TUBE_CORAL_BLOCK, true, new Pair<>(NetworksVersionedEnchantment.GLOW, 1))),
-            Theme.CRAFTING);
+            "NTW_PRISTINE_AI_CORE",
+            getPreEnchantedItemStack(Material.TUBE_CORAL_BLOCK, true, new Pair<>(XEnchantment.POWER.get(), 1)),
+            Theme.CRAFTING,
+            "Pristine A.I. Core",
+            "A perfected artificial intelligence",
+            "resides within this defined shell."
+        );
 
         INTERDIMENSIONAL_PRESENCE = Theme.themedSlimefunItemStack(
-            Lang.getItem(
-                "NTW_INTERDIMENSIONAL_PRESENCE",
-                ItemStackUtil.getPreEnchantedItemStack(
-                    Material.ARMOR_STAND, true, new Pair<>(NetworksVersionedEnchantment.GLOW, 1))),
-            Theme.CRAFTING);
+            "NTW_INTERDIMENSIONAL_PRESENCE",
+            getPreEnchantedItemStack(Material.ARMOR_STAND, true, new Pair<>(XEnchantment.POWER.get(), 1)),
+            Theme.CRAFTING,
+            "Interdimensional Presence",
+            "An artificial intelligence that has",
+            "grown too powerful for just a",
+            "single dimension."
+        );
 
         NETWORK_CONTROLLER = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_CONTROLLER", new ItemStack(Material.BLACK_STAINED_GLASS)), Theme.MACHINE);
+            "NTW_CONTROLLER",
+            new ItemStack(Material.BLACK_STAINED_GLASS),
+            Theme.MACHINE,
+            "Network Controller"
+            , "The Network controller is the brain",
+            "for the whole network. Max 1 per network."
+        );
 
         NETWORK_BRIDGE = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_BRIDGE", new ItemStack(Material.WHITE_STAINED_GLASS)), Theme.MACHINE);
+            "NTW_BRIDGE",
+            new ItemStack(Material.WHITE_STAINED_GLASS),
+            Theme.MACHINE,
+            "Network Bridge"
+            , "The bridge allows you to cheaply",
+            "connect network objects together."
+        );
 
         NETWORK_MONITOR = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_MONITOR", new ItemStack(Material.GREEN_STAINED_GLASS)), Theme.MACHINE);
+            "NTW_MONITOR",
+            new ItemStack(Material.GREEN_STAINED_GLASS),
+            Theme.MACHINE,
+            "Network Monitor",
+            "The Network Monitor allows simple",
+            "import/export interaction with adjacent",
+            "objects.",
+            "",
+            "Currently Supports:",
+            "Infinity Barrels",
+            "Network Shells"
+        );
 
         NETWORK_IMPORT = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_IMPORT", new ItemStack(Material.RED_STAINED_GLASS)), Theme.MACHINE);
+            "NTW_IMPORT",
+            new ItemStack(Material.RED_STAINED_GLASS),
+            Theme.MACHINE,
+            "Network Importer",
+            "The Network Importer brings any",
+            "item inside it into the network, up",
+            "to 9 stacks per SF tick.",
+            "Accepts items in from cargo."
+        );
+
+        NETWORK_ADVANCED_IMPORT = Theme.themedSlimefunItemStack(
+            "NTW_ADVANCED_IMPORT",
+            new ItemStack(Material.BLUE_GLAZED_TERRACOTTA),
+            Theme.MACHINE,
+            "Advanced Network Import",
+            "A double-chest import buffer for",
+            "high-volume network deposits.",
+            "",
+            "Use its Slimefun setting to choose",
+            "how often it transfers items."
+        );
 
         NETWORK_EXPORT = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_EXPORT", new ItemStack(Material.BLUE_STAINED_GLASS)), Theme.MACHINE);
+            "NTW_EXPORT",
+            new ItemStack(Material.BLUE_STAINED_GLASS),
+            Theme.MACHINE,
+            "Network Exporter",
+            "The Network Exporter can be set to",
+            "constantly export 1 stack of any",
+            "given item.",
+            "Accepts item withdrawal from cargo."
+        );
+
+        NETWORK_ADVANCED_EXPORT = Theme.themedSlimefunItemStack(
+            "NTW_ADVANCED_EXPORT",
+            new ItemStack(Material.PURPLE_GLAZED_TERRACOTTA),
+            Theme.MACHINE,
+            "Advanced Network Export",
+            "Request up to eighteen item types",
+            "and deliver them to an eighteen-slot",
+            "output buffer.",
+            "",
+            "Items that cannot fit return to",
+            "the network automatically."
+        );
 
         NETWORK_GRABBER = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_GRABBER", new ItemStack(Material.MAGENTA_STAINED_GLASS)), Theme.MACHINE);
+            "NTW_GRABBER",
+            new ItemStack(Material.MAGENTA_STAINED_GLASS),
+            Theme.MACHINE,
+            "Network Grabber",
+            "The Network Grabber will try",
+            "to grab the first item it finds",
+            "from within the selected machine."
+        );
+
+        NETWORK_ADVANCED_GRABBER = Theme.themedSlimefunItemStack(
+            "NTW_ADVANCED_GRABBER",
+            new ItemStack(Material.PURPLE_GLAZED_TERRACOTTA),
+            Theme.MACHINE,
+            "Advanced Network Grabber",
+            "Moves up to 3,456 items per cycle",
+            "from the selected external inventory",
+            "into the network."
+        );
 
         NETWORK_PUSHER = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_PUSHER", new ItemStack(Material.BROWN_STAINED_GLASS)), Theme.MACHINE);
+            "NTW_PUSHER",
+            new ItemStack(Material.BROWN_STAINED_GLASS),
+            Theme.MACHINE,
+            "Network Pusher",
+            "The Network Pusher will try",
+            "to push a matching item from a",
+            "given item into the chosen machine.",
+            "",
+            "&e⚠ &6Destino Externo / External Target:",
+            "&7Solo envía hacia máquinas externas o cofres.",
+            "&c❌ NO empuja a Quantum Storage ni Celdas.",
+            "&b💡 Quantum Storage:&7 Conéctalo con &fCable de Red&7."
+        );
 
-        NETWORK_MORE_PUSHER = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_MOREPUSHER", new ItemStack(Material.BROWN_STAINED_GLASS)), Theme.MACHINE);
-
-        NETWORK_BEST_PUSHER = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_BESTPUSHER", new ItemStack(Material.BROWN_STAINED_GLASS)), Theme.MACHINE);
+        NETWORK_ADVANCED_PUSHER = Theme.themedSlimefunItemStack(
+            "NTW_ADVANCED_PUSHER",
+            new ItemStack(Material.BLUE_GLAZED_TERRACOTTA),
+            Theme.MACHINE,
+            "Advanced Network Pusher",
+            "Uses up to nine request templates",
+            "and moves up to 3,456 items per cycle",
+            "into the selected external inventory.",
+            "",
+            "&e⚠ &6Destino Externo / External Target:",
+            "&7Solo máquinas externas o inventarios vanilla.",
+            "&c❌ NO empuja a Quantum Storage ni Celdas.",
+            "&b💡 Quantum Storage:&7 Conéctalo con &fCable de Red&7."
+        );
 
         NETWORK_CONTROL_X = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_CONTROL_X", new ItemStack(Material.WHITE_GLAZED_TERRACOTTA)), Theme.MACHINE);
+            "NTW_CONTROL_X",
+            new ItemStack(Material.WHITE_GLAZED_TERRACOTTA),
+            Theme.MACHINE,
+            "Network Control: X",
+            "The Network Control: X will try",
+            "to 'cut' a block out of the world",
+            "and put it into the Network.",
+            "Only works on Vanilla blocks without",
+            "inventories.",
+            "",
+            MessageFormat.format("{0}Network Drain: {1}{2}/cut", Theme.CLICK_INFO, Theme.PASSIVE, 100)
+        );
 
         NETWORK_CONTROL_V = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_CONTROL_V", new ItemStack(Material.PURPLE_GLAZED_TERRACOTTA)), Theme.MACHINE);
+            "NTW_CONTROL_V",
+            new ItemStack(Material.PURPLE_GLAZED_TERRACOTTA),
+            Theme.MACHINE,
+            "Network Control: V",
+            "The Network Control: V will try",
+            "to 'paste' a block from the Network",
+            "into the world.",
+            "Only works with Vanilla blocks.",
+            "",
+            MessageFormat.format("{0}Network Drain: {1}{2}/paste", Theme.CLICK_INFO, Theme.PASSIVE, 100)
+        );
 
         NETWORK_VACUUM = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_VACUUM", new ItemStack(Material.ORANGE_GLAZED_TERRACOTTA)), Theme.MACHINE);
+            "NTW_VACUUM",
+            new ItemStack(Material.ORANGE_GLAZED_TERRACOTTA),
+            Theme.MACHINE,
+            "Network Vacuum",
+            "The Network Vacuum will suck",
+            "items into itself within a",
+            "4 x 4 range centered on itself.",
+            "Vacuumed items will try to push",
+            "into the Network.",
+            "",
+            MessageFormat.format("{0}Network Drain: {1}{2}/tick", Theme.CLICK_INFO, Theme.PASSIVE, 100)
+        );
+
+        NETWORK_ADVANCED_VACUUM = Theme.themedSlimefunItemStack(
+            "NTW_ADVANCED_VACUUM",
+            new ItemStack(Material.LIGHT_BLUE_GLAZED_TERRACOTTA),
+            Theme.MACHINE,
+            "Advanced Network Vacuum",
+            "Collects items into an eighteen-slot buffer",
+            "with optional whitelist or blacklist filters.",
+            "Filters can match item type or exact item data.",
+            "",
+            "Items are moved into the network safely."
+        );
 
         NETWORK_VANILLA_GRABBER = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_VANILLA_GRABBER", new ItemStack(Material.ORANGE_STAINED_GLASS)), Theme.MACHINE);
+            "NTW_VANILLA_GRABBER",
+            new ItemStack(Material.ORANGE_STAINED_GLASS),
+            Theme.MACHINE,
+            "Network Vanilla Grabber",
+            "The Network Vanilla Grabber will try",
+            "to grab the first possible item from",
+            "the chosen vanilla inventory.",
+            "You need to grab items from this",
+            "node using a Grabber."
+        );
 
         NETWORK_VANILLA_PUSHER = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_VANILLA_PUSHER", new ItemStack(Material.LIME_STAINED_GLASS)), Theme.MACHINE);
+            "NTW_VANILLA_PUSHER",
+            new ItemStack(Material.LIME_STAINED_GLASS),
+            Theme.MACHINE,
+            "Network Vanilla Pusher",
+            "The Network Vanilla Pusher will try",
+            "to push any item inside itself into",
+            "the chosen vanilla inventory.",
+            "You need to push items into this",
+            "node from a Pusher."
+        );
 
         NETWORK_WIRELESS_TRANSMITTER = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_NETWORK_WIRELESS_TRANSMITTER", new ItemStack(Material.CYAN_STAINED_GLASS)),
-            Theme.MACHINE);
+            "NTW_NETWORK_WIRELESS_TRANSMITTER",
+            new ItemStack(Material.CYAN_STAINED_GLASS),
+            Theme.MACHINE,
+            "Network Wireless Transmitter",
+            "The Network Wireless Transmitter will",
+            "try to transmit any item inside itself",
+            "to a linked Network Wireless Receiver",
+            "located within the same world.",
+            "Use the Wireless Configurator to",
+            "setup the Wireless Transmitter.",
+            "Requires 500 Network Power per transfer."
+        );
 
         NETWORK_WIRELESS_RECEIVER = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_NETWORK_WIRELESS_RECEIVER", new ItemStack(Material.PURPLE_STAINED_GLASS)),
-            Theme.MACHINE);
+            "NTW_NETWORK_WIRELESS_RECEIVER",
+            new ItemStack(Material.PURPLE_STAINED_GLASS),
+            Theme.MACHINE,
+            "Network Wireless Receiver",
+            "The Network Wireless Receiver is",
+            "able to receive items from a linked",
+            "wireless transmitter located within",
+            "the same world.",
+            "It will try to push received items",
+            "into the Network each tick."
+        );
 
         NETWORK_PURGER = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_TRASH", new ItemStack(Material.OBSERVER)), Theme.MACHINE);
+            "NTW_TRASH",
+            new ItemStack(Material.OBSERVER),
+            Theme.MACHINE,
+            "Network Purger",
+            "The Network Purger will pull",
+            "matching items from the network",
+            "and instantly void them.",
+            "Use with great care!"
+        );
+
+        NETWORK_ADVANCED_PURGER = Theme.themedSlimefunItemStack(
+            "NTW_ADVANCED_PURGER",
+            new ItemStack(Material.RED_GLAZED_TERRACOTTA),
+            Theme.MACHINE,
+            "Advanced Network Purger",
+            "Set up to forty-eight purge filters",
+            "to remove unwanted items from",
+            "the network in controlled batches.",
+            "",
+            "Filtered items are destroyed."
+        );
 
         NETWORK_GRID = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_GRID", new ItemStack(Material.NOTE_BLOCK)), Theme.MACHINE);
+            "NTW_GRID",
+            new ItemStack(Material.NOTE_BLOCK),
+            Theme.MACHINE,
+            "Network Grid",
+            "The Network Grid shows you all",
+            "the items you have in the network",
+            "and lets you insert or withdraw",
+            "directly."
+        );
 
         NETWORK_CRAFTING_GRID = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_CRAFTING_GRID", new ItemStack(Material.REDSTONE_LAMP)), Theme.MACHINE);
+            "NTW_CRAFTING_GRID",
+            new ItemStack(Material.REDSTONE_LAMP),
+            Theme.MACHINE,
+            "Network Crafting Grid",
+            "The Network Crafting Grid acts",
+            "like a normal grid but displays less",
+            "items but allows crafting using items",
+            "directly from the network."
+        );
 
         NETWORK_CELL = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_CELL", new ItemStack(Material.HONEYCOMB_BLOCK)), Theme.MACHINE);
+            "NTW_CELL",
+            new ItemStack(Material.HONEYCOMB_BLOCK),
+            Theme.MACHINE,
+            "Network Cell",
+            "The Network Cell is a large",
+            "(double chest) inventory that can",
+            "be accessed both from the network",
+            "and in the world."
+        );
 
         NETWORK_GREEDY_BLOCK = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_GREEDY_BLOCK", new ItemStack(Material.SHROOMLIGHT)), Theme.MACHINE);
+            "NTW_GREEDY_BLOCK",
+            new ItemStack(Material.SHROOMLIGHT),
+            Theme.MACHINE,
+            "Network Greedy Block",
+            "The Network Greedy Block can",
+            "be set to one item which it will",
+            "then greedily hold on to a single",
+            "stack of. If more incoming items",
+            "do not fit, they will not enter",
+            "the network."
+        );
+
+        NETWORK_ADVANCED_GREEDY_BLOCK = Theme.themedSlimefunItemStack(
+            "NTW_ADVANCED_GREEDY_BLOCK",
+            new ItemStack(Material.GLOWSTONE),
+            Theme.MACHINE,
+            "Advanced Network Greedy Block",
+            "Stores one matching item in nine slots.",
+            "Works as a larger protected endpoint",
+            "for bulk network storage."
+        );
 
         NETWORK_QUANTUM_WORKBENCH = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_QUANTUM_WORKBENCH", new ItemStack(Material.DRIED_KELP_BLOCK)), Theme.MACHINE);
+            "NTW_QUANTUM_WORKBENCH",
+            new ItemStack(Material.DRIED_KELP_BLOCK),
+            Theme.MACHINE,
+            "Network Quantum Workbench",
+            "Allows the crafting of Quantum Storages."
+        );
 
-        NETWORK_QUANTUM_STORAGE_0 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_QUANTUM_STORAGE_0", new ItemStack(Material.ORANGE_TERRACOTTA)), Theme.MACHINE);
-
-        NETWORK_QUANTUM_STORAGE_9 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_QUANTUM_STORAGE_9", new ItemStack(Material.YELLOW_TERRACOTTA)), Theme.MACHINE);
-
-        NETWORK_QUANTUM_STORAGE_10 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_QUANTUM_STORAGE_10", new ItemStack(Material.LIME_TERRACOTTA)), Theme.MACHINE);
 
         NETWORK_QUANTUM_STORAGE_1 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_QUANTUM_STORAGE_1", new ItemStack(Material.WHITE_TERRACOTTA)), Theme.MACHINE);
+            "NTW_QUANTUM_STORAGE_1",
+            new ItemStack(Material.WHITE_TERRACOTTA),
+            Theme.MACHINE,
+            "Network Quantum Storage (4K)",
+            "Stores " + NetworkQuantumStorage.getSizes()[0] + " items",
+            "",
+            "Stores items in mass quantities within",
+            "a quantum singularity.",
+            "",
+            "&b🔌 Red / Network:&7 Conectar con &fCable de Red&7.",
+            "&7  (La red deposita directamente, &cNO requiere Pusher&7)",
+            "&6📦 Standalone:&7 Alimenta con &fTolva vanilla&7 arriba."
+        );
 
         NETWORK_QUANTUM_STORAGE_2 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_QUANTUM_STORAGE_2", new ItemStack(Material.LIGHT_GRAY_TERRACOTTA)), Theme.MACHINE);
+            "NTW_QUANTUM_STORAGE_2",
+            new ItemStack(Material.LIGHT_GRAY_TERRACOTTA),
+            Theme.MACHINE,
+            "Network Quantum Storage (32K)",
+            "Stores " + NetworkQuantumStorage.getSizes()[1] + " items",
+            "",
+            "Stores items in mass quantities within",
+            "a quantum singularity.",
+            "",
+            "&b🔌 Red / Network:&7 Conectar con &fCable de Red&7.",
+            "&7  (La red deposita directamente, &cNO requiere Pusher&7)",
+            "&6📦 Standalone:&7 Alimenta con &fTolva vanilla&7 arriba."
+        );
 
         NETWORK_QUANTUM_STORAGE_3 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_QUANTUM_STORAGE_3", new ItemStack(Material.GRAY_TERRACOTTA)), Theme.MACHINE);
+            "NTW_QUANTUM_STORAGE_3",
+            new ItemStack(Material.GRAY_TERRACOTTA),
+            Theme.MACHINE,
+            "Network Quantum Storage (262K)",
+            "Stores " + NetworkQuantumStorage.getSizes()[2] + " items",
+            "",
+            "Stores items in mass quantities within",
+            "a quantum singularity.",
+            "",
+            "&b🔌 Red / Network:&7 Conectar con &fCable de Red&7.",
+            "&7  (La red deposita directamente, &cNO requiere Pusher&7)",
+            "&6📦 Standalone:&7 Alimenta con &fTolva vanilla&7 arriba."
+        );
 
         NETWORK_QUANTUM_STORAGE_4 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_QUANTUM_STORAGE_4", new ItemStack(Material.BROWN_TERRACOTTA)), Theme.MACHINE);
+            "NTW_QUANTUM_STORAGE_4",
+            new ItemStack(Material.BROWN_TERRACOTTA),
+            Theme.MACHINE,
+            "Network Quantum Storage (2M)",
+            "Stores " + NetworkQuantumStorage.getSizes()[3] + " items",
+            "",
+            "Stores items in mass quantities within",
+            "a quantum singularity.",
+            "",
+            "&b🔌 Red / Network:&7 Conectar con &fCable de Red&7.",
+            "&7  (La red deposita directamente, &cNO requiere Pusher&7)",
+            "&6📦 Standalone:&7 Alimenta con &fTolva vanilla&7 arriba."
+        );
 
         NETWORK_QUANTUM_STORAGE_5 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_QUANTUM_STORAGE_5", new ItemStack(Material.BLACK_TERRACOTTA)), Theme.MACHINE);
+            "NTW_QUANTUM_STORAGE_5",
+            new ItemStack(Material.BLACK_TERRACOTTA),
+            Theme.MACHINE,
+            "Network Quantum Storage (16M)",
+            "Stores " + NetworkQuantumStorage.getSizes()[4] + " items",
+            "",
+            "Stores items in mass quantities within",
+            "a quantum singularity.",
+            "",
+            "&b🔌 Red / Network:&7 Conectar con &fCable de Red&7.",
+            "&7  (La red deposita directamente, &cNO requiere Pusher&7)",
+            "&6📦 Standalone:&7 Alimenta con &fTolva vanilla&7 arriba."
+        );
 
         NETWORK_QUANTUM_STORAGE_6 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_QUANTUM_STORAGE_6", new ItemStack(Material.PURPLE_TERRACOTTA)), Theme.MACHINE);
+            "NTW_QUANTUM_STORAGE_6",
+            new ItemStack(Material.PURPLE_TERRACOTTA),
+            Theme.MACHINE,
+            "Network Quantum Storage (134M)",
+            "Stores " + NetworkQuantumStorage.getSizes()[5] + " items",
+            "",
+            "Stores items in mass quantities within",
+            "a quantum singularity.",
+            "",
+            "&b🔌 Red / Network:&7 Conectar con &fCable de Red&7.",
+            "&7  (La red deposita directamente, &cNO requiere Pusher&7)",
+            "&6📦 Standalone:&7 Alimenta con &fTolva vanilla&7 arriba."
+        );
 
         NETWORK_QUANTUM_STORAGE_7 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_QUANTUM_STORAGE_7", new ItemStack(Material.MAGENTA_TERRACOTTA)), Theme.MACHINE);
+            "NTW_QUANTUM_STORAGE_7",
+            new ItemStack(Material.MAGENTA_TERRACOTTA),
+            Theme.MACHINE,
+            "Network Quantum Storage (1B)",
+            "Stores " + NetworkQuantumStorage.getSizes()[6] + " items",
+            "",
+            "Stores items in mass quantities within",
+            "a quantum singularity.",
+            "",
+            "&b🔌 Red / Network:&7 Conectar con &fCable de Red&7.",
+            "&7  (La red deposita directamente, &cNO requiere Pusher&7)",
+            "&6📦 Standalone:&7 Alimenta con &fTolva vanilla&7 arriba."
+        );
 
         NETWORK_QUANTUM_STORAGE_8 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_QUANTUM_STORAGE_8", new ItemStack(Material.RED_TERRACOTTA)), Theme.MACHINE);
-
-        NETWORK_QUANTUM_STORAGE_11 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_QUANTUM_STORAGE_11", new ItemStack(Material.BLUE_GLAZED_TERRACOTTA)), Theme.MACHINE);
-
-        NETWORK_QUANTUM_STORAGE_12 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_QUANTUM_STORAGE_12", new ItemStack(Material.LIME_GLAZED_TERRACOTTA)), Theme.MACHINE);
-
-        NETWORK_QUANTUM_STORAGE_13 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_QUANTUM_STORAGE_13", new ItemStack(Material.BLACK_GLAZED_TERRACOTTA)), Theme.MACHINE);
-
-        NETWORK_QUANTUM_STORAGE_14 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_QUANTUM_STORAGE_14", new ItemStack(Material.RED_GLAZED_TERRACOTTA)), Theme.MACHINE);
-
+            "NTW_QUANTUM_STORAGE_8",
+            new ItemStack(Material.RED_TERRACOTTA),
+            Theme.MACHINE,
+            "Network Quantum Storage (∞)",
+            "Stores ∞ items... almost",
+            "",
+            "Stores items in mass quantities within",
+            "a quantum singularity.",
+            "",
+            "&b🔌 Red / Network:&7 Conectar con &fCable de Red&7.",
+            "&7  (La red deposita directamente, &cNO requiere Pusher&7)",
+            "&6📦 Standalone:&7 Alimenta con &fTolva vanilla&7 arriba."
+        );
 
         NETWORK_CAPACITOR_1 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_CAPACITOR_1", new ItemStack(Material.BROWN_GLAZED_TERRACOTTA)), Theme.MACHINE);
+            "NTW_CAPACITOR_1",
+            new ItemStack(Material.BROWN_GLAZED_TERRACOTTA),
+            Theme.MACHINE,
+            "Network Capacitor (1)",
+            "The Network Capacitor can take",
+            "power in and store it for use",
+            "within the network.",
+            "",
+            MessageFormat.format("{0}Capacity: {1}{2}", Theme.CLICK_INFO, Theme.PASSIVE, 1000)
+        );
 
         NETWORK_CAPACITOR_2 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_CAPACITOR_2", new ItemStack(Material.GREEN_GLAZED_TERRACOTTA)), Theme.MACHINE);
+            "NTW_CAPACITOR_2",
+            new ItemStack(Material.GREEN_GLAZED_TERRACOTTA),
+            Theme.MACHINE,
+            "Network Capacitor (2)",
+            "The Network Capacitor can take",
+            "power in and store it for use",
+            "within the network.",
+            "",
+            MessageFormat.format("{0}Capacity: {1}{2}", Theme.CLICK_INFO, Theme.PASSIVE, 10000)
+        );
 
         NETWORK_CAPACITOR_3 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_CAPACITOR_3", new ItemStack(Material.BLACK_GLAZED_TERRACOTTA)), Theme.MACHINE);
+            "NTW_CAPACITOR_3",
+            new ItemStack(Material.BLACK_GLAZED_TERRACOTTA),
+            Theme.MACHINE,
+            "Network Capacitor (3)",
+            "The Network Capacitor can take",
+            "power in and store it for use",
+            "within the network.",
+            "",
+            MessageFormat.format("{0}Capacity: {1}{2}", Theme.CLICK_INFO, Theme.PASSIVE, 100000)
+        );
 
         NETWORK_CAPACITOR_4 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_CAPACITOR_4", new ItemStack(Material.GRAY_GLAZED_TERRACOTTA)), Theme.MACHINE);
+                "NTW_CAPACITOR_4",
+                new ItemStack(Material.GRAY_GLAZED_TERRACOTTA),
+                Theme.MACHINE,
+                "Network Capacitor (4)",
+                "The Network Capacitor can take",
+                "power in and store it for use",
+                "within the network.",
+                "",
+                MessageFormat.format("{0}Capacity: {1}{2}", Theme.CLICK_INFO, Theme.PASSIVE, 1000000)
+        );
 
         NETWORK_POWER_OUTLET_1 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_POWER_OUTLET_1", new ItemStack(Material.YELLOW_GLAZED_TERRACOTTA)), Theme.MACHINE);
+            "NTW_POWER_OUTLET_1",
+            new ItemStack(Material.YELLOW_GLAZED_TERRACOTTA),
+            Theme.MACHINE,
+            "Network Power Outlet (1)",
+            "The Network Capacitor can take",
+            "power from the Network to power",
+            "machines or feed back into an",
+            "EnergyNet network.",
+            "",
+            "Operates at a 20% loss rate.",
+            "",
+            MessageFormat.format("{0}Max Transfer: {1}{2}", Theme.CLICK_INFO, Theme.PASSIVE, 500)
+        );
 
         NETWORK_POWER_OUTLET_2 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_POWER_OUTLET_2", new ItemStack(Material.RED_GLAZED_TERRACOTTA)), Theme.MACHINE);
+            "NTW_POWER_OUTLET_2",
+            new ItemStack(Material.RED_GLAZED_TERRACOTTA),
+            Theme.MACHINE,
+            "Network Power Outlet (2)",
+            "The Network Capacitor can take",
+            "power from the Network to power",
+            "machines or feed back into an",
+            "EnergyNet network.",
+            "",
+            "Operates at a 20% loss rate.",
+            "",
+            MessageFormat.format("{0}Max Transfer: {1}{2}", Theme.CLICK_INFO, Theme.PASSIVE, 2000)
+        );
 
         NETWORK_POWER_DISPLAY = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_POWER_DISPLAY", new ItemStack(Material.TINTED_GLASS)), Theme.MACHINE);
+            "NTW_POWER_DISPLAY",
+            new ItemStack(Material.TINTED_GLASS),
+            Theme.MACHINE,
+            "Network Power Display",
+            "The Network Power Display will",
+            "display the power in the network.",
+            "Simple, right?"
+        );
+
+        NETWORK_INPUT_ONLY_MONITOR = Theme.themedSlimefunItemStack(
+            "NTW_INPUT_ONLY_MONITOR",
+            new ItemStack(Material.LIME_STAINED_GLASS),
+            Theme.MACHINE,
+            "Network Input Monitor",
+            "Connects a storage block to the network",
+            "for deposits only.",
+            "Items can enter, but cannot be pulled",
+            "out through this monitor."
+        );
+
+        NETWORK_OUTPUT_ONLY_MONITOR = Theme.themedSlimefunItemStack(
+            "NTW_OUTPUT_ONLY_MONITOR",
+            new ItemStack(Material.ORANGE_STAINED_GLASS),
+            Theme.MACHINE,
+            "Network Output Monitor",
+            "Connects a storage block to the network",
+            "for withdrawals only.",
+            "Items can leave, but cannot be pushed",
+            "into storage through this monitor."
+        );
 
         NETWORK_RECIPE_ENCODER = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_RECIPE_ENCODER", new ItemStack(Material.TARGET)), Theme.MACHINE);
+            "NTW_RECIPE_ENCODER",
+            new ItemStack(Material.TARGET),
+            Theme.MACHINE,
+            "Network Recipe Encoder",
+            "Used to form a Crafting Blueprint",
+            "from input items.",
+            "",
+            MessageFormat.format("{0}Network Drain: {1}{2}/encode", Theme.CLICK_INFO, Theme.PASSIVE, 20000)
+        );
 
         NETWORK_AUTO_CRAFTER = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_AUTO_CRAFTER", new ItemStack(Material.BLACK_GLAZED_TERRACOTTA)), Theme.MACHINE);
+            "NTW_AUTO_CRAFTER",
+            new ItemStack(Material.BLACK_GLAZED_TERRACOTTA),
+            Theme.MACHINE,
+            "Network Auto Crafter",
+            "The Network Auto Crafter accepts",
+            "a crafting blueprint. When the",
+            "blueprint output item is requested",
+            "while there is none in the network",
+            "it will be crafted if you have",
+            "materials.",
+            "",
+            MessageFormat.format("{0}Network Drain: {1}{2}/craft", Theme.CLICK_INFO, Theme.PASSIVE, 64)
+        );
 
         NETWORK_AUTO_CRAFTER_WITHHOLDING = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_AUTO_CRAFTER_WITHHOLDING", new ItemStack(Material.WHITE_GLAZED_TERRACOTTA)),
-            Theme.MACHINE);
+            "NTW_AUTO_CRAFTER_WITHHOLDING",
+            new ItemStack(Material.WHITE_GLAZED_TERRACOTTA),
+            Theme.MACHINE,
+            "Network Auto Crafter (Withholding)",
+            "The Network Auto Crafter accepts",
+            "a crafting blueprint. When the",
+            "blueprint output item is requested",
+            "while there is none in the network",
+            "it will be crafted if you have",
+            "materials.",
+            "",
+            "A Withholding Crafter will keep",
+            "a stack in the output and stop",
+            "crafting. The stack can been seen",
+            "in the Network and also allows for",
+            "cargo.",
+            "",
+            MessageFormat.format("{0}Network Drain: {1}{2}/craft", Theme.CLICK_INFO, Theme.PASSIVE, 128)
+        );
+
+        NETWORK_ADVANCED_AUTO_CRAFTER = Theme.themedSlimefunItemStack(
+            "NTW_ADVANCED_AUTO_CRAFTER",
+            new ItemStack(Material.CYAN_GLAZED_TERRACOTTA),
+            Theme.MACHINE,
+            "Advanced Network Auto Crafter",
+            "Processes a stack of identical",
+            "Crafting Blueprints at once.",
+            "",
+            "Energy and ingredients scale with",
+            "the Blueprints inserted.",
+            "The result must fit in one stack.",
+            "",
+            MessageFormat.format("{0}Network Drain: {1}{2}/blueprint/craft", Theme.CLICK_INFO, Theme.PASSIVE, 96)
+        );
+
+        NETWORK_ADVANCED_AUTO_CRAFTER_WITHHOLDING = Theme.themedSlimefunItemStack(
+            "NTW_ADVANCED_AUTO_CRAFTER_WITHHOLDING",
+            new ItemStack(Material.LIGHT_BLUE_GLAZED_TERRACOTTA),
+            Theme.MACHINE,
+            "Advanced Network Auto Crafter (Withholding)",
+            "Processes stacked Blueprints while",
+            "keeping its output available for cargo.",
+            "",
+            "Energy and ingredients scale with",
+            "the Blueprints inserted.",
+            "The result must fit in one stack.",
+            "",
+            MessageFormat.format("{0}Network Drain: {1}{2}/blueprint/craft", Theme.CLICK_INFO, Theme.PASSIVE, 192)
+        );
+
+        NETWORK_CRAFTER_MATRIX = Theme.themedSlimefunItemStack(
+            "NTW_CRAFTER_MATRIX",
+            new ItemStack(Material.RESPAWN_ANCHOR),
+            Theme.MACHINE,
+            "Network Crafter Matrix",
+            "A high-tier multi-recipe crafting matrix.",
+            "Can store up to 9 crafting blueprints",
+            "simultaneously and process them sequentially.",
+            "",
+            MessageFormat.format("{0}Network Drain: {1}{2}/craft", Theme.CLICK_INFO, Theme.PASSIVE, 500)
+        );
 
         CRAFTING_BLUEPRINT = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_CRAFTING_BLUEPRINT", new ItemStack(Material.BLUE_DYE)), Theme.TOOL);
+            "NTW_CRAFTING_BLUEPRINT",
+            new ItemStack(Material.BLUE_DYE),
+            Theme.TOOL,
+            "Crafting Blueprint",
+            "A blank blueprint that can",
+            "be used to store a crafting",
+            "recipe."
+        );
 
-        NETWORK_PROBE =
-            Theme.themedSlimefunItemStack(Lang.getItem("NTW_PROBE", new ItemStack(Material.CLOCK)), Theme.TOOL);
+        NETWORK_PROBE = Theme.themedSlimefunItemStack(
+            "NTW_PROBE",
+            new ItemStack(Material.CLOCK),
+            Theme.TOOL,
+            "Network Probe",
+            "When used on a controller, this will",
+            "show the nodes on the network."
+        );
 
-        NETWORK_REMOTE =
-            Theme.themedSlimefunItemStack(Lang.getItem("NTW_REMOTE", new ItemStack(Material.PAINTING)), Theme.TOOL);
+        NETWORK_REMOTE = Theme.themedSlimefunItemStack(
+            "NTW_REMOTE",
+            new ItemStack(Material.PAINTING),
+            Theme.TOOL,
+            "Network Remote",
+            "Opens a bound grid wirelessly.",
+            "The grid must be chunk loaded.",
+            "",
+            MessageFormat.format("{0}Range: {1}{2}", Theme.CLICK_INFO, Theme.PASSIVE, NetworkRemote.getRanges()[0])
+        );
 
         NETWORK_REMOTE_EMPOWERED = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_REMOTE_EMPOWERED", new ItemStack(Material.ITEM_FRAME)), Theme.TOOL);
+            "NTW_REMOTE_EMPOWERED",
+            new ItemStack(Material.ITEM_FRAME),
+            Theme.TOOL,
+            "Network Remote Empowered",
+            "Opens a bound grid wirelessly.",
+            "The grid must be chunk loaded.",
+            "",
+            MessageFormat.format("{0}Range: {1}{2}", Theme.CLICK_INFO, Theme.PASSIVE, NetworkRemote.getRanges()[1])
+        );
 
         NETWORK_REMOTE_PRISTINE = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_REMOTE_PRISTINE", new ItemStack(Material.GLOW_ITEM_FRAME)), Theme.TOOL);
+            "NTW_REMOTE_PRISTINE",
+            new ItemStack(Material.GLOW_ITEM_FRAME),
+            Theme.TOOL,
+            "Network Remote Pristine",
+            "Opens a bound grid wirelessly.",
+            "The grid must be chunk loaded.",
+            "",
+            MessageFormat.format("{0}Range: {1}{2}", Theme.CLICK_INFO, Theme.PASSIVE, "Unlimited")
+        );
 
         NETWORK_REMOTE_ULTIMATE = Theme.themedSlimefunItemStack(
-            Lang.getItem(
-                "NTW_REMOTE_ULTIMATE",
-                ItemStackUtil.getPreEnchantedItemStack(
-                    Material.GLOW_ITEM_FRAME, true, new Pair<>(NetworksVersionedEnchantment.GLOW, 1))),
-            Theme.TOOL);
+            "NTW_REMOTE_ULTIMATE",
+            getPreEnchantedItemStack(Material.GLOW_ITEM_FRAME, true, new Pair<>(XEnchantment.POWER.get(), 1)),
+            Theme.TOOL,
+            "Network Remote Ultimate",
+            "Opens a bound grid wirelessly.",
+            "The grid must be chunk loaded.",
+            "",
+            MessageFormat.format("{0}Range: {1}{2}", Theme.CLICK_INFO, Theme.PASSIVE, "Cross Dimensional")
+        );
 
         NETWORK_CRAYON = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_CRAYON", new ItemStack(Material.RED_CANDLE)), Theme.TOOL);
+            "NTW_CRAYON",
+            new ItemStack(Material.RED_CANDLE),
+            Theme.TOOL,
+            "Network Crayon",
+            "When used on a controller, this will",
+            "enable particle display from specific",
+            "blocks when working."
+        );
 
         NETWORK_CONFIGURATOR = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_CONFIGURATOR", new ItemStack(Material.BLAZE_ROD)), Theme.TOOL);
+            "NTW_CONFIGURATOR",
+            new ItemStack(Material.BLAZE_ROD),
+            Theme.TOOL,
+            "Network Configurator",
+            "Used to copy and paste the",
+            "configurations of directional",
+            "interfaces.",
+            "",
+            MessageFormat.format("{0}Right Click: {1}{2}", Theme.CLICK_INFO, Theme.PASSIVE, "Apply Config"),
+            MessageFormat.format("{0}Shift Right Click: {1}{2}", Theme.CLICK_INFO, Theme.PASSIVE, "Store Config")
+        );
 
         NETWORK_WIRELESS_CONFIGURATOR = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_WIRELESS_CONFIGURATOR", new ItemStack(Material.BLAZE_ROD)), Theme.TOOL);
+            "NTW_WIRELESS_CONFIGURATOR",
+            new ItemStack(Material.BLAZE_ROD),
+            Theme.TOOL,
+            "Network Wireless Configurator",
+            "Used to store a Receiver location",
+            "and then to apply to a Transmitter",
+            "",
+            MessageFormat.format("{0}Right Click: {1}{2}", Theme.CLICK_INFO, Theme.PASSIVE, "Store Receiver Location"),
+            MessageFormat.format("{0}Shift Right Click: {1}{2}", Theme.CLICK_INFO, Theme.PASSIVE, "Set Location to Transmitter")
+        );
 
         NETWORK_RAKE_1 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_RAKE_1", new ItemStack(Material.TWISTING_VINES), LoreBuilder.usesLeft(250)),
-            Theme.TOOL);
+            "NTW_RAKE_1",
+            new ItemStack(Material.TWISTING_VINES),
+            Theme.TOOL,
+            "Network Rake (1)",
+            "Right click a Network Object to",
+            "break it instantly.",
+            "",
+            ChatColor.YELLOW + "250 Uses " + ChatColor.GRAY + "left"
+        );
 
         NETWORK_RAKE_2 = Theme.themedSlimefunItemStack(
-            Lang.getItem("NTW_RAKE_2", new ItemStack(Material.WEEPING_VINES), LoreBuilder.usesLeft(1000)),
-            Theme.TOOL);
+            "NTW_RAKE_2",
+            new ItemStack(Material.WEEPING_VINES),
+            Theme.TOOL,
+            "Network Rake (2)",
+            "Right click a Network Object to",
+            "break it instantly.",
+            "",
+            ChatColor.YELLOW + "1000 Uses " + ChatColor.GRAY + "left"
+        );
 
         NETWORK_RAKE_3 = Theme.themedSlimefunItemStack(
-            Lang.getItem(
-                "NTW_RAKE_3",
-                ItemStackUtil.getPreEnchantedItemStack(
-                    Material.WEEPING_VINES,
-                    true,
-                    new Pair<>(NetworksVersionedEnchantment.LUCK_OF_THE_SEA, 1)),
-                LoreBuilder.usesLeft(9999)),
-            Theme.TOOL);
+            "NTW_RAKE_3",
+            getPreEnchantedItemStack(Material.WEEPING_VINES, true, new Pair<>(XEnchantment.LUCK_OF_THE_SEA.get(), 1)),
+            Theme.TOOL,
+            "Network Rake (3)",
+            "Right click a Network Object to",
+            "break it instantly.",
+            "",
+            ChatColor.YELLOW + "9999 Uses " + ChatColor.GRAY + "left"
+        );
 
         NETWORK_DEBUG_STICK = Theme.themedSlimefunItemStack(
-            Lang.getItem(
-                "NTW_DEBUG_STICK",
-                ItemStackUtil.getPreEnchantedItemStack(
-                    Material.STICK, true, new Pair<>(NetworksVersionedEnchantment.LUCK_OF_THE_SEA, 1))),
-            Theme.TOOL);
+            "NTW_DEBUG_STICK",
+            getPreEnchantedItemStack(Material.STICK, true, new Pair<>(XEnchantment.LUCK_OF_THE_SEA.get(), 1)),
+            Theme.TOOL,
+            "Network Debug Stick",
+            "Right click a Network Object to",
+            "turn on debugging."
+        );
+    }
+
+    @Nonnull
+    @SafeVarargs
+    public static ItemStack getPreEnchantedItemStack(Material material, boolean hide, @Nonnull Pair<Enchantment, Integer>... enchantments) {
+        ItemStack itemStack = new ItemStack(material);
+        ItemMeta itemMeta = itemStack.getItemMeta();
+        for (Pair<Enchantment, Integer> pair : enchantments) {
+            itemMeta.addEnchant(pair.getFirstValue(), pair.getSecondValue(), true);
+        }
+
+        if (hide) {
+            itemMeta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        }
+
+        itemStack.setItemMeta(itemMeta);
+        return itemStack;
     }
 }

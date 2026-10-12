@@ -1,99 +1,63 @@
 package io.github.sefiraat.networks.slimefun.network;
 
-import com.balugaq.netex.api.interfaces.HangingBlock;
-import com.balugaq.netex.utils.Lang;
-import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunBlockData;
-import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
-import com.ytdd9527.networksexpansion.core.items.SpecialSlimefunItem;
 import io.github.sefiraat.networks.NetworkStorage;
-import io.github.sefiraat.networks.Networks;
 import io.github.sefiraat.networks.network.NetworkRoot;
 import io.github.sefiraat.networks.network.NodeDefinition;
 import io.github.sefiraat.networks.network.NodeType;
-import io.github.sefiraat.networks.utils.StackUtils;
-import io.github.thebusybiscuit.slimefun4.api.exceptions.IncompatibleItemHandlerException;
-import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
-import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
-import io.github.thebusybiscuit.slimefun4.core.handlers.BlockBreakHandler;
-import io.github.thebusybiscuit.slimefun4.core.handlers.BlockPlaceHandler;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
+import io.github.sefiraat.networks.utils.NetworkIntegrity;
+import io.github.sefiraat.networks.utils.NetworkUtils;
+import io.github.sefiraat.networks.utils.Theme;
+import com.github.drakescraft_labs.slimefun4.api.events.PlayerRightClickEvent;
+import com.github.drakescraft_labs.slimefun4.api.items.ItemGroup;
+import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItem;
+import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItemStack;
+import com.github.drakescraft_labs.slimefun4.api.recipes.RecipeType;
+import com.github.drakescraft_labs.slimefun4.core.handlers.BlockBreakHandler;
+import com.github.drakescraft_labs.slimefun4.core.handlers.BlockPlaceHandler;
+import com.github.drakescraft_labs.slimefun4.core.handlers.ItemUseHandler;
+import com.github.drakescraft_labs.slimefun4.implementation.items.blocks.UnplaceableBlock;
+
 import lombok.Getter;
-import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
-import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
-import org.bukkit.Bukkit;
+import me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config;
+import com.github.drakescraft_labs.slimefun4.legacy.Objects.handlers.BlockTicker;
+import com.github.drakescraft_labs.slimefun4.legacy.api.BlockStorage;
+import com.github.drakescraft_labs.slimefun4.legacy.api.inventory.BlockMenu;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.ItemStack;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Range;
 
-import javax.annotation.OverridingMethodsMustInvokeSuper;
+import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
-@Getter
-public abstract class NetworkObject extends SpecialSlimefunItem implements AdminDebuggable {
-    public static final Queue<Location> scheduledHangingTick = new ConcurrentLinkedQueue<>();
-    protected static final Set<BlockFace> CHECK_FACES =
-        Set.of(BlockFace.UP, BlockFace.DOWN, BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST);
+public abstract class NetworkObject extends SlimefunItem implements AdminDebuggable {
 
-    static {
-        Bukkit.getScheduler()
-            .runTaskTimer(
-                Networks.getInstance(),
-                () -> {
-                    while (!scheduledHangingTick.isEmpty()) {
-                        final Location location = scheduledHangingTick.poll();
-                        final Block block = location.getBlock();
-                        HangingBlock.tickHangingBlocks(block);
-                    }
-                },
-                1L,
-                Slimefun.getTickerTask().getTickRate());
-    }
-
+    @Getter
     private final NodeType nodeType;
+    @Getter
     private final List<Integer> slotsToDrop = new ArrayList<>();
-    private final Set<Location> firstTickLocations = new HashSet<>();
 
-    protected NetworkObject(
-        @NotNull ItemGroup itemGroup,
-        @NotNull SlimefunItemStack item,
-        @NotNull RecipeType recipeType,
-        @NotNull ItemStack @NotNull [] recipe,
-        @Range(from = 1, to = 64) int outputAmount,
-        @NotNull NodeType type
-    ) {
-        this(itemGroup, item, recipeType, recipe, StackUtils.getAsQuantity(item, outputAmount), type);
-    }
+    protected static final Set<BlockFace> CHECK_FACES = Set.of(
+        BlockFace.UP,
+        BlockFace.DOWN,
+        BlockFace.NORTH,
+        BlockFace.SOUTH,
+        BlockFace.EAST,
+        BlockFace.WEST
+    );
 
-    protected NetworkObject(
-        @NotNull ItemGroup itemGroup,
-        @NotNull SlimefunItemStack item,
-        @NotNull RecipeType recipeType,
-        ItemStack @NotNull [] recipe,
-        NodeType type) {
+
+    protected NetworkObject(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe, NodeType type) {
         this(itemGroup, item, recipeType, recipe, null, type);
     }
 
-    protected NetworkObject(
-        @NotNull ItemGroup itemGroup,
-        @NotNull SlimefunItemStack item,
-        @NotNull RecipeType recipeType,
-        ItemStack @NotNull [] recipe,
-        ItemStack recipeOutput,
-        NodeType type) {
+    protected NetworkObject(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe, ItemStack recipeOutput, NodeType type) {
         super(itemGroup, item, recipeType, recipe, recipeOutput);
         this.nodeType = type;
         addItemHandler(
@@ -105,27 +69,8 @@ public abstract class NetworkObject extends SpecialSlimefunItem implements Admin
                 }
 
                 @Override
-                public void tick(@NotNull Block b, SlimefunItem item, @NotNull SlimefunBlockData data) {
-                    if (!firstTickLocations.contains(b.getLocation())) {
-                        // Netex - Hanging patch start
-                        Bukkit.getScheduler().runTask(Networks.getInstance(), () -> {
-                            HangingBlock.loadHangingBlocks(data);
-                            HangingBlock.doFirstTick(data);
-                        });
-                        // Netex - Hanging patch end
-                        firstTickLocations.add(b.getLocation());
-                        return;
-                    }
-
+                public void tick(Block b, SlimefunItem item, Config data) {
                     addToRegistry(b);
-                    tickHangingBlocks(b);
-                }
-
-                // no exception
-                @Override
-                @NotNull
-                public Optional<IncompatibleItemHandlerException> validate(@NotNull SlimefunItem slimefunItem) {
-                    return Optional.empty();
                 }
             },
             new BlockBreakHandler(false, false) {
@@ -134,105 +79,131 @@ public abstract class NetworkObject extends SpecialSlimefunItem implements Admin
                 public void onPlayerBreak(BlockBreakEvent event, ItemStack item, List<ItemStack> drops) {
                     preBreak(event);
                     onBreak(event);
-                    postBreak(event);
                 }
             },
             new BlockPlaceHandler(false) {
                 @Override
-                @ParametersAreNonnullByDefault
-                public void onPlayerPlace(BlockPlaceEvent event) {
-                    prePlace(event);
-                    onPlace(event);
-                    postPlace(event);
+                public void onPlayerPlace(@Nonnull BlockPlaceEvent blockPlaceEvent) {
+                    onPlace(blockPlaceEvent);
                 }
-            });
+            },
+            new ItemUseHandler() {
+                @Override
+                public void onRightClick(PlayerRightClickEvent playerRightClickEvent) {
+                    prePlace(playerRightClickEvent);
+                }
+            }
+        );
     }
 
-    protected void addToRegistry(@NotNull Block block) {
-        if (!NetworkStorage.containsKey(block.getLocation())) {
-            final NodeDefinition nodeDefinition = new NodeDefinition(nodeType);
-            NetworkStorage.registerNode(block.getLocation(), nodeDefinition);
-        }
-    }
-
-    protected void tickHangingBlocks(@NotNull Block block) {
-        /*
-         * Antes se encolaba todo nodo en cada tick, y el hilo principal hacia getBlock() y creaba
-         * dos HashMap por cada uno aunque no tuviera ningun item frame. Ahora solo entran los que
-         * de verdad tienen hanging blocks.
-         */
+    protected void addToRegistry(@Nonnull Block block) {
         final Location location = block.getLocation();
-        if (HangingBlock.hasHangingBlocks(location)) {
-            scheduledHangingTick.add(location);
+        if (NetworkStorage.getAllNetworkObjects().containsKey(location)) {
+            return;
+        }
+        final NodeDefinition nodeDefinition = new NodeDefinition(nodeType);
+        if (NetworkStorage.getAllNetworkObjects().putIfAbsent(location, nodeDefinition) == null) {
+            /*
+             * A persisted node can reach its first ticker after the controller already rebuilt.
+             * Registering it without invalidating the graph leaves the machine disconnected until
+             * a player breaks or places a nearby block. World-wide invalidation is intentional:
+             * a network can cross chunk boundaries, and the dirty set coalesces the startup burst.
+             */
+            NetworkController.markNetworksDirtyInWorld(block.getWorld());
         }
     }
 
-    @OverridingMethodsMustInvokeSuper
-    protected void preBreak(@NotNull BlockBreakEvent event) {
-        NetworkRoot.removePersistentAccessHistory(event.getBlock().getLocation());
-        NetworkRoot.removeCountObservingAccessHistory(event.getBlock().getLocation());
+    protected void preBreak(@Nonnull BlockBreakEvent event) {
+
     }
 
-    @OverridingMethodsMustInvokeSuper
-    protected void onBreak(@NotNull BlockBreakEvent event) {
+    protected void onBreak(@Nonnull BlockBreakEvent event) {
         final Location location = event.getBlock().getLocation();
-        final BlockMenu blockMenu = StorageCacheUtils.getMenu(location);
+        final BlockMenu blockMenu = BlockStorage.getInventory(event.getBlock());
 
         if (blockMenu != null) {
-            for (int i : getSlotsToDrop()) {
+            for (int i : this.slotsToDrop) {
                 blockMenu.dropItems(location, i);
             }
         }
+        NetworkController.markDirty(location);
+        if (this.nodeType == NodeType.CONTROLLER) {
+            NetworkController.wipeNetwork(location);
+        }
+        NetworkStorage.removeNode(location);
+        clearCachedState(location);
 
-        Slimefun.getDatabaseManager().getBlockDataController().removeBlock(location);
+        BlockStorage.clearBlockInfo(location);
     }
 
-    @OverridingMethodsMustInvokeSuper
-    protected void postBreak(@NotNull BlockBreakEvent event) {
+    protected void clearCachedState(@Nonnull Location location) {
     }
 
-    @OverridingMethodsMustInvokeSuper
-    @SuppressWarnings("unused")
-    protected void prePlace(@NotNull BlockPlaceEvent event) {
+    protected void prePlace(@Nonnull PlayerRightClickEvent event) {
+        Optional<Block> blockOptional = event.getClickedBlock();
+        Location controllerLocation = null;
+
+        if (blockOptional.isPresent()) {
+            Block block = blockOptional.get();
+            Block target = block.getRelative(event.getClickedFace());
+
+            for (BlockFace checkFace : CHECK_FACES) {
+                Block checkBlock = target.getRelative(checkFace);
+
+                // Check for node definitions. If there isn't one, we don't care
+                NodeDefinition definition = NetworkStorage.getAllNetworkObjects().get(checkBlock.getLocation());
+                if (definition == null) {
+                    continue;
+                }
+
+                /*
+                 * A stale definition beside the target must not turn an ordinary placement into
+                 * a fake controller conflict. Purge it here, before the custom right-click event
+                 * can cancel creation of Bukkit's BlockPlaceEvent.
+                 */
+                if (!NetworkIntegrity.isNetworksMachine(checkBlock.getLocation())) {
+                    NetworkUtils.clearNetwork(checkBlock.getLocation());
+                    continue;
+                }
+
+                // There is a definition, if it has a node, then it's part of an active network.
+                if (definition.getNode() != null) {
+                    NetworkRoot networkRoot = definition.getNode().getRoot();
+                    if (controllerLocation == null) {
+                        // First network found, store root location
+                        controllerLocation = networkRoot.getController();
+                    } else if (!controllerLocation.equals(networkRoot.getController())) {
+                        // Location differs from that previously recorded, would result in two controllers
+                        cancelPlace(event);
+                    }
+                }
+            }
+        }
     }
 
-    @SuppressWarnings("unused")
-    protected void cancelPlace(@NotNull BlockPlaceEvent event) {
-        event.getPlayer().sendMessage(Lang.getString("messages.unsupported-operation.comprehensive.cancel_place"));
-        event.setCancelled(true);
+    protected void cancelPlace(PlayerRightClickEvent event) {
+        event.getPlayer().sendMessage(Theme.ERROR.getColor() + "This placement would connect two controllers!");
+        event.cancel();
     }
 
-    @OverridingMethodsMustInvokeSuper
-    protected void onPlace(@NotNull BlockPlaceEvent event) {
-        /*
-         * Registrar el nodo aqui y no esperar a su propio ticker.
-         *
-         * addToRegistry solo se llamaba desde el BlockTicker, y en el primer tick hay un return
-         * antes de llegar: el nodo tardaba dos ticks suyos en entrar en NetworkStorage. Mientras
-         * tanto el BFS del controlador no lo ve, porque recorre consultando NetworkStorage.
-         *
-         * Y el BFS es quien enlaza cada nodo con su red (setNode). Como el controlador construye
-         * un NetworkRoot nuevo en cada tick, todo nodo que no alcance en esa pasada se queda
-         * apuntando al NetworkNode de la pasada anterior, que ya esta muerto. Las maquinas
-         * consultan definition.getNode() y piden objetos a una red que ya no existe: dejan de
-         * funcionar sin decir nada.
-         *
-         * Eso es lo que los jugadores describen como "pones un nodo y se paraliza la red".
-         * Registrandolo al colocarlo, el nodo es visible para el BFS siguiente y no hay ventana.
-         */
+    protected void onPlace(@Nonnull BlockPlaceEvent event) {
+        // Register first, then invalidate adjacent roots so a newly added node is
+        // included without requiring players to replace the Network Controller.
+        final Location location = event.getBlockPlaced().getLocation();
+
+        // addToRegistry usa putIfAbsent, asi que una definicion persistida de la maquina anterior
+        // sobreviviria con su NodeType antiguo y el grafo trataria a esta como lo que ya no es.
+        // El jugador acaba de colocarla: su tipo manda sobre cualquier resto en la coordenada.
+        final NodeDefinition previous = NetworkStorage.getAllNetworkObjects().get(location);
+        if (previous != null && previous.getType() != this.nodeType) {
+            NetworkUtils.clearNetwork(location);
+        }
+
         addToRegistry(event.getBlockPlaced());
-    }
-
-    @OverridingMethodsMustInvokeSuper
-    @SuppressWarnings("unused")
-    protected void postPlace(@NotNull BlockPlaceEvent event) {
-    }
-
-    public boolean isAdminDebuggable() {
-        return false;
+        NetworkController.markDirty(location);
     }
 
     public boolean runSync() {
-        return false;
+        return true;
     }
 }

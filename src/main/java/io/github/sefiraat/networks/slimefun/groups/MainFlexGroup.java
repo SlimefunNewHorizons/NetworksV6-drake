@@ -1,26 +1,22 @@
 package io.github.sefiraat.networks.slimefun.groups;
 
-import com.balugaq.netex.utils.Lang;
-import com.ytdd9527.networksexpansion.utils.TextUtil;
 import io.github.sefiraat.networks.slimefun.NetworksItemGroups;
 import io.github.sefiraat.networks.utils.Theme;
-import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
-import io.github.thebusybiscuit.slimefun4.api.items.groups.FlexItemGroup;
-import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
-import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuide;
-import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuideMode;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
+import com.github.drakescraft_labs.slimefun4.api.items.ItemGroup;
+import com.github.drakescraft_labs.slimefun4.api.items.groups.FlexItemGroup;
+import com.github.drakescraft_labs.slimefun4.api.player.PlayerProfile;
+import com.github.drakescraft_labs.slimefun4.core.guide.SlimefunGuide;
+import com.github.drakescraft_labs.slimefun4.core.guide.SlimefunGuideMode;
+import com.github.drakescraft_labs.slimefun4.implementation.Slimefun;
+import com.github.drakescraft_labs.slimefun4.utils.ChestMenuUtils;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.ChestMenu;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 
@@ -29,8 +25,14 @@ import javax.annotation.ParametersAreNonnullByDefault;
  */
 public class MainFlexGroup extends FlexItemGroup {
 
-    private static final ItemStack DOCS_ITEM_STACK =
-        Theme.themedItemStack(Lang.getIcon("docs_icon", Material.BOOK), Theme.GUIDE);
+    private static final ItemStack DOCS_ITEM_STACK = Theme.themedItemStack(
+        Material.BOOK,
+        Theme.GUIDE,
+        "Guia de Networks DrakesCraft",
+        "Clic para recibir el enlace a la",
+        "guia y notas de compatibilidad",
+        "del fork activo en DrakesCraft."
+    );
 
     private static final int GUIDE_BACK = 1;
     private static final int DOCS = 9;
@@ -39,11 +41,15 @@ public class MainFlexGroup extends FlexItemGroup {
     private static final int NETWORK_ITEMS = 12;
     private static final int NETWORK_QUANTUMS = 13;
 
-    private static final int[] HEADER = new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8};
-    private static final int[] FOOTER = new int[]{45, 46, 47, 48, 49, 50, 51, 52, 53};
+    private static final int[] HEADER = new int[]{
+        0, 1, 2, 3, 4, 5, 6, 7, 8
+    };
+    private static final int[] FOOTER = new int[]{
+        45, 46, 47, 48, 49, 50, 51, 52, 53
+    };
 
-    public MainFlexGroup(@NotNull NamespacedKey key, @NotNull ItemStack item, int tier) {
-        super(key, item, tier);
+    public MainFlexGroup(NamespacedKey key, ItemStack item) {
+        super(key, item);
     }
 
     @Override
@@ -77,53 +83,53 @@ public class MainFlexGroup extends FlexItemGroup {
             menu.addMenuClickHandler(slot, ((player1, i, itemStack, clickAction) -> false));
         }
 
-        // Sound
-        menu.addMenuOpeningHandler((p) -> p.playSound(p.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, 1.0F, 1.0F));
-
         // Back
         menu.replaceExistingItem(
             GUIDE_BACK,
             ChestMenuUtils.getBackButton(
-                player, "", TextUtil.GRAY + Slimefun.getLocalization().getMessage(player, "guide.back.guide")));
+                player,
+                Slimefun.getLocalization().getMessage("guide.back.guide")
+            )
+        );
         menu.addMenuClickHandler(GUIDE_BACK, (player1, slot, itemStack, clickAction) -> {
             SlimefunGuide.openMainMenu(profile, mode, 1);
             return false;
         });
 
-        // Docs
+        // The guide follows the active fork, not an upstream site with stale recipes or mechanics.
         menu.replaceExistingItem(DOCS, DOCS_ITEM_STACK);
         menu.addMenuClickHandler(DOCS, (player1, i1, itemStack1, clickAction) -> {
-            final TextComponent link = new TextComponent(Lang.getString("icons.docs_icon.click_to_visit_wiki"));
+            final TextComponent link = new TextComponent("Abre la guia de Networks DrakesCraft");
             link.setColor(ChatColor.YELLOW);
-            link.setClickEvent(
-                new ClickEvent(ClickEvent.Action.OPEN_URL, "https://slimefun-addons-wiki.guizhanss.cn/networks/"));
+            link.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL,
+                "https://github.com/DrakesCraft-Labs/NetworksV6-drake#readme"));
             player.spigot().sendMessage(link);
             return false;
         });
 
         // Materials
         menu.replaceExistingItem(MATERIALS, NetworksItemGroups.MATERIALS.getItem(player));
-        menu.addMenuClickHandler(
-            MATERIALS,
-            (player1, i1, itemStack1, clickAction) -> openPage(profile, NetworksItemGroups.MATERIALS, mode, 1));
+        menu.addMenuClickHandler(MATERIALS, (player1, i1, itemStack1, clickAction) ->
+            openPage(profile, NetworksItemGroups.MATERIALS, mode, 1)
+        );
 
         // Tools
         menu.replaceExistingItem(TOOLS, NetworksItemGroups.TOOLS.getItem(player));
-        menu.addMenuClickHandler(
-            TOOLS, (player1, i1, itemStack1, clickAction) -> openPage(profile, NetworksItemGroups.TOOLS, mode, 1));
+        menu.addMenuClickHandler(TOOLS, (player1, i1, itemStack1, clickAction) ->
+            openPage(profile, NetworksItemGroups.TOOLS, mode, 1)
+        );
 
         // Network Items
         menu.replaceExistingItem(NETWORK_ITEMS, NetworksItemGroups.NETWORK_ITEMS.getItem(player));
-        menu.addMenuClickHandler(
-            NETWORK_ITEMS,
-            (player1, i1, itemStack1, clickAction) -> openPage(profile, NetworksItemGroups.NETWORK_ITEMS, mode, 1));
+        menu.addMenuClickHandler(NETWORK_ITEMS, (player1, i1, itemStack1, clickAction) ->
+            openPage(profile, NetworksItemGroups.NETWORK_ITEMS, mode, 1)
+        );
 
         // Network Quantums
         menu.replaceExistingItem(NETWORK_QUANTUMS, NetworksItemGroups.NETWORK_QUANTUMS.getItem(player));
-        menu.addMenuClickHandler(
-            NETWORK_QUANTUMS,
-            (player1, i1, itemStack1, clickAction) ->
-                openPage(profile, NetworksItemGroups.NETWORK_QUANTUMS, mode, 1));
+        menu.addMenuClickHandler(NETWORK_QUANTUMS, (player1, i1, itemStack1, clickAction) ->
+            openPage(profile, NetworksItemGroups.NETWORK_QUANTUMS, mode, 1)
+        );
     }
 
     @ParametersAreNonnullByDefault

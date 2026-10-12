@@ -1,92 +1,55 @@
 package io.github.sefiraat.networks.network.stackcaches;
 
-import com.balugaq.netex.utils.Lang;
-import lombok.Getter;
-import lombok.Setter;
-import cl.jackstar.networks.compat.TextoItems;
+import io.github.sefiraat.networks.utils.Theme;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.UnknownNullability;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-@SuppressWarnings("deprecation")
 public class QuantumCache extends ItemStackCache {
+
+    @Nullable
+    private final ItemMeta storedItemMeta;
     private final boolean supportsCustomMaxAmount;
+    private final int limit;
+    private int amount;
+    private boolean voidExcess;
 
-    @Setter
-    private long limit;
-
-    public int getLimit() {
-        return limit > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) limit;
+    public QuantumCache(@Nullable ItemStack storedItem, int amount, int limit, boolean voidExcess) {
+        this(storedItem, amount, limit, voidExcess, false);
     }
 
-    public long getLimitLong() {
-        return limit;
-    }
-
-    @Getter
-    private volatile long amount;
-
-    public int getAmountInt() {
-        return amount > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) amount;
-    }
-
-    public long getAmountLong() {
-        return amount;
-    }
-
-    @Setter
-    @Getter
-    private volatile boolean voidExcess;
-
-    public QuantumCache(
-        @Nullable ItemStack storedItem,
-        long amount,
-        int limit,
-        boolean voidExcess,
-        boolean supportsCustomMaxAmount) {
-        this(storedItem, amount, (long) limit, voidExcess, supportsCustomMaxAmount);
-    }
-
-    public QuantumCache(
-        @Nullable ItemStack storedItem,
-        long amount,
-        long limit,
-        boolean voidExcess,
-        boolean supportsCustomMaxAmount) {
+    public QuantumCache(@Nullable ItemStack storedItem, int amount, int limit, boolean voidExcess, boolean supportsCustomMaxAmount) {
         super(storedItem);
+        this.storedItemMeta = storedItem == null ? null : storedItem.getItemMeta();
         this.amount = amount;
         this.limit = limit;
         this.voidExcess = voidExcess;
         this.supportsCustomMaxAmount = supportsCustomMaxAmount;
     }
 
+    @Nullable
+    public ItemMeta getStoredItemMeta() {
+        return this.storedItemMeta;
+    }
+
+    public synchronized int getAmount() {
+        return amount;
+    }
+
     public synchronized void setAmount(int amount) {
-        if (amount < -2_000_000_000) {
-            this.amount = -amount; // just for data fix in some case, normally nothing will reach -2B
-        } else {
-            this.amount = amount;
-        }
+        this.amount = amount;
     }
 
-    public synchronized void setAmount(long amount) {
-        if (amount < -2_000_000_000) {
-            this.amount = -amount; // just for data fix in some case, normally nothing will reach -2B
-        } else {
-            this.amount = amount;
-        }
-    }
-
-    public boolean supportsCustomMaxAmount() {
-        return this.supportsCustomMaxAmount;
-    }
-
+    /**
+     * Applies an insertion atomically for this storage cell. Quantum storage can be reached by
+     * menus, ticks and network requests in close succession; keeping the amount mutation together
+     * prevents a stale read from producing a duplicate withdrawal.
+     */
     public synchronized int increaseAmount(int amount) {
-        long total = this.amount + (long) amount;
+        long total = (long) this.amount + (long) amount;
         if (total > this.limit) {
             this.amount = this.limit;
             if (!this.voidExcess) {
@@ -99,19 +62,35 @@ public class QuantumCache extends ItemStackCache {
     }
 
     public synchronized void reduceAmount(int amount) {
-        this.amount = this.amount - amount;
+        this.amount = Math.max(0, this.amount - amount);
+    }
+
+    public int getLimit() {
+        return limit;
+    }
+
+    public synchronized boolean isVoidExcess() {
+        return voidExcess;
+    }
+
+    public boolean supportsCustomMaxAmount() {
+        return supportsCustomMaxAmount;
+    }
+
+    public synchronized void setVoidExcess(boolean voidExcess) {
+        this.voidExcess = voidExcess;
     }
 
     @Nullable
     public synchronized ItemStack withdrawItem(int amount) {
-        if (this.getItemStack() == null) {
+        if (this.getItemStack() == null || this.amount <= 0) {
             return null;
         }
         final ItemStack clone = this.getItemStack().clone();
-        int amt = (int) Math.min(this.amount, amount);
-        reduceAmount(amt);
-        clone.setAmount(amt);
-        return clone;
+        final int toGive = Math.max(0, Math.min(this.amount, amount));
+        clone.setAmount(toGive);
+        reduceAmount(toGive);
+        return toGive > 0 ? clone : null;
     }
 
     @Nullable
@@ -122,60 +101,33 @@ public class QuantumCache extends ItemStackCache {
         return withdrawItem(this.getItemStack().getMaxStackSize());
     }
 
-    public void addMetaLore(@NotNull ItemMeta itemMeta) {
-        List<String> old = itemMeta.getLore();
-        final List<String> lore = old != null ? new ArrayList<>(old) : new ArrayList<>();
-        String itemName = Lang.getString("messages.normal-operation.quantum_cache.empty");
-        if (getItemStack() != null) {
-            itemName = TextoItems.nombreVisible(this.getItemStack());
-        }
+    public void addMetaLore(ItemMeta itemMeta) {
+        final List<String> lore = itemMeta.hasLore() ? itemMeta.getLore() : new ArrayList<>();
         lore.add("");
-        lore.add(String.format(Lang.getString("messages.normal-operation.quantum_cache.stored_item"), itemName));
-        lore.add(String.format(
-            Lang.getString("messages.normal-operation.quantum_cache.stored_amount"), this.getAmountLong()));
-        if (this.supportsCustomMaxAmount) {
-            lore.add(String.format(
-                Lang.getString("messages.normal-operation.quantum_cache.custom_max_limit"), this.getLimit()));
-        }
-
+        lore.add(Theme.CLICK_INFO + "Holding: " +
+                     (this.getItemMeta() != null && this.getItemMeta().hasDisplayName() ? this.getItemMeta().getDisplayName() : this.getItemStack().getType().name())
+        );
+        lore.add(Theme.CLICK_INFO + "Amount: " + this.getAmount());
         itemMeta.setLore(lore);
     }
 
-    public void updateMetaLore(@NotNull ItemMeta itemMeta) {
-        List<String> lore = itemMeta.hasLore() ? itemMeta.getLore() : new ArrayList<>();
-        if (lore == null) {
-            lore = new ArrayList<>();
-        }
-        String itemName = Lang.getString("messages.normal-operation.quantum_cache.empty");
-        if (getItemStack() != null) {
-            itemName = TextoItems.nombreVisible(this.getItemStack());
-        }
-        final int loreIndexModifier = this.supportsCustomMaxAmount ? 1 : 0;
-        lore.set(
-            lore.size() - 2 - loreIndexModifier,
-            String.format(Lang.getString("messages.normal-operation.quantum_cache.stored_item"), itemName));
-        lore.set(
-            lore.size() - 1 - loreIndexModifier,
-            String.format(
-                Lang.getString("messages.normal-operation.quantum_cache.stored_amount"), this.getAmountLong()));
-        if (this.supportsCustomMaxAmount) {
-            lore.set(
-                lore.size() - loreIndexModifier,
-                String.format(
-                    Lang.getString("messages.normal-operation.quantum_cache.custom_max_limit"),
-                    this.getLimitLong()));
-        }
+    public void updateMetaLore(ItemMeta itemMeta) {
+        final List<String> lore = itemMeta.hasLore() ? itemMeta.getLore() : new ArrayList<>();
+        final String holding = Theme.CLICK_INFO + "Holding: " +
+            (this.getItemMeta() != null && this.getItemMeta().hasDisplayName() ? this.getItemMeta().getDisplayName() : this.getItemStack().getType().name());
+        final String amount = Theme.CLICK_INFO + "Amount: " + this.getAmount();
 
+        if (lore.size() >= 2
+            && lore.get(lore.size() - 2).contains("Holding:")
+            && lore.get(lore.size() - 1).contains("Amount:")
+        ) {
+            lore.set(lore.size() - 2, holding);
+            lore.set(lore.size() - 1, amount);
+        } else {
+            lore.add("");
+            lore.add(holding);
+            lore.add(amount);
+        }
         itemMeta.setLore(lore);
-    }
-
-    @Nullable
-    public ItemStack getItemStack() {
-        return super.getItemStack();
-    }
-
-    @Override
-    public synchronized void setItemStack(ItemStack itemStack) {
-        super.setItemStack(itemStack);
     }
 }

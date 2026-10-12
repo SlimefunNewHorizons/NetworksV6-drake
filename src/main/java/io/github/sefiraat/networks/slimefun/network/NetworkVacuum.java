@@ -1,58 +1,58 @@
 package io.github.sefiraat.networks.slimefun.network;
 
-import com.balugaq.netex.api.enums.FeedbackType;
-import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunBlockData;
-import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
-import dev.sefiraat.sefilib.misc.ParticleUtils;
+import dev.drake.sefilib.misc.ParticleUtils;
 import io.github.sefiraat.networks.NetworkStorage;
-import io.github.sefiraat.networks.Networks;
-import io.github.sefiraat.networks.managers.SupportedPluginManager;
 import io.github.sefiraat.networks.network.NodeDefinition;
+import io.github.sefiraat.networks.utils.NetworkTransportUtils;
 import io.github.sefiraat.networks.network.NodeType;
 import io.github.sefiraat.networks.slimefun.NetworkSlimefunItems;
-import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
-import io.github.thebusybiscuit.slimefun4.api.items.ItemSetting;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
-import io.github.thebusybiscuit.slimefun4.api.items.settings.IntRangeSetting;
-import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
-import io.github.thebusybiscuit.slimefun4.core.handlers.BlockPlaceHandler;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.github.thebusybiscuit.slimefun4.libraries.dough.protection.Interaction;
-import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
-import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
-import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
-import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
-import me.mrCookieSlime.Slimefun.api.item_transport.ItemTransportFlow;
-import org.bukkit.Bukkit;
+import com.github.drakescraft_labs.slimefun4.api.items.ItemGroup;
+import com.github.drakescraft_labs.slimefun4.api.items.ItemSetting;
+import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItem;
+import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItemStack;
+import com.github.drakescraft_labs.slimefun4.api.items.settings.IntRangeSetting;
+import com.github.drakescraft_labs.slimefun4.api.recipes.RecipeType;
+import com.github.drakescraft_labs.slimefun4.implementation.Slimefun;
+import com.github.drakescraft_labs.slimefun4.libraries.dough.protection.Interaction;
+import com.github.drakescraft_labs.slimefun4.utils.SlimefunUtils;
+import me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config;
+import com.github.drakescraft_labs.slimefun4.legacy.Objects.handlers.BlockTicker;
+import com.github.drakescraft_labs.slimefun4.legacy.api.BlockStorage;
+import com.github.drakescraft_labs.slimefun4.legacy.api.inventory.BlockMenu;
+import com.github.drakescraft_labs.slimefun4.legacy.api.inventory.BlockMenuPreset;
+import com.github.drakescraft_labs.slimefun4.legacy.api.item_transport.ItemTransportFlow;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.Particle;
 import org.bukkit.block.Block;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
-import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.ItemStack;
-import org.jetbrains.annotations.NotNull;
 
+import javax.annotation.Nonnull;
 import java.util.Collection;
-import java.util.UUID;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
-@SuppressWarnings("DuplicatedCode")
 public class NetworkVacuum extends NetworkObject {
 
     private static final int[] INPUT_SLOTS = new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8};
+    /**
+     * An empty spatial query is the common case for unattended vacuums. Rechecking it every
+     * server tick makes each machine traverse the world's entity lookup even when there is
+     * nothing to collect. Half a second remains responsive for drops while avoiding that idle
+     * main-thread cost.
+     */
+    private static final int EMPTY_SCAN_DELAY_TICKS = 10;
 
-    private final @NotNull ItemSetting<Integer> tickRate;
-    private final @NotNull ItemSetting<Integer> vacuumRange;
+    private final ItemSetting<Integer> tickRate;
+    private final ItemSetting<Integer> vacuumRange;
+    private final Map<Location, Integer> emptyScanCooldowns = new ConcurrentHashMap<>();
 
-    public NetworkVacuum(
-        @NotNull ItemGroup itemGroup,
-        @NotNull SlimefunItemStack item,
-        @NotNull RecipeType recipeType,
-        ItemStack @NotNull [] recipe) {
+    public NetworkVacuum(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
         super(itemGroup, item, recipeType, recipe, NodeType.VACUUM);
 
         this.tickRate = new IntRangeSetting(this, "tick_rate", 1, 1, 10);
@@ -63,108 +63,84 @@ public class NetworkVacuum extends NetworkObject {
             this.getSlotsToDrop().add(inputSlot);
         }
 
-        addItemHandler(new BlockTicker() {
+        addItemHandler(
+            new BlockTicker() {
 
-            private int tick = 1;
+                private int tick = 1;
 
-            @Override
-            public boolean isSynchronized() {
-                return false;
-            }
+                @Override
+                public boolean isSynchronized() {
+                    return true;
+                }
 
-            @Override
-            public void tick(@NotNull Block block, SlimefunItem item, @NotNull SlimefunBlockData data) {
-                if (tick <= 1) {
-                    final BlockMenu blockMenu = data.getBlockMenu();
-                    if (blockMenu == null) {
-                        return;
+                @Override
+                public void tick(Block block, SlimefunItem item, Config data) {
+                    if (tick <= 1) {
+                        final BlockMenu blockMenu = BlockStorage.getInventory(block);
+                        addToRegistry(block);
+                        if (blockMenu != null) {
+                            tryAddItem(blockMenu);
+                            if (isScanDue(block.getLocation())) {
+                                findItem(blockMenu);
+                            }
+                        }
                     }
-                    addToRegistry(block);
-                    tryAddItem(blockMenu);
-                    Bukkit.getScheduler().runTask(Networks.getInstance(), bukkitTask -> findItem(blockMenu));
+                }
+
+                @Override
+                public void uniqueTick() {
+                    tick = tick <= 1 ? tickRate.getValue() : tick - 1;
                 }
             }
-
-            @Override
-            public void uniqueTick() {
-                tick = tick <= 1 ? tickRate.getValue() : tick - 1;
-            }
-        });
-
-        addItemHandler(new BlockPlaceHandler(false) {
-            @Override
-            public void onPlayerPlace(@NotNull BlockPlaceEvent event) {
-                NetworkStorage.removeNode(event.getBlock().getLocation());
-                SlimefunBlockData blockData =
-                    StorageCacheUtils.getBlock(event.getBlock().getLocation());
-                if (blockData == null) {
-                    return;
-                }
-                blockData.setData(
-                    NetworkDirectional.OWNER_KEY,
-                    event.getPlayer().getUniqueId().toString());
-            }
-        });
+        );
     }
 
-    private void findItem(@NotNull BlockMenu blockMenu) {
+    private void findItem(@Nonnull BlockMenu blockMenu) {
         for (int inputSlot : INPUT_SLOTS) {
             final ItemStack inSlot = blockMenu.getItemInSlot(inputSlot);
-            if (inSlot == null || inSlot.getType() == Material.AIR) {
+            if (inSlot == null || inSlot.getType().isAir()) {
                 final Location location = blockMenu.getLocation().clone().add(0.5, 0.5, 0.5);
                 final int range = this.vacuumRange.getValue();
-                Collection<Item> items = location.getWorld().getNearbyEntitiesByType(Item.class, location, range, range, range);
-
-                if (items.isEmpty()) {
-                    sendFeedback(blockMenu.getLocation(), FeedbackType.NO_ITEM_FOUND);
+                Collection<Entity> items = location.getWorld()
+                    .getNearbyEntities(location, range, range, range, Item.class::isInstance);
+                Optional<Entity> optionalEntity = items.stream().findFirst();
+                if (optionalEntity.isEmpty() || !(optionalEntity.get() instanceof Item item)) {
+                    deferEmptyScan(blockMenu.getLocation());
                     return;
                 }
-
-                for (Item item : items) {
-                    final String ownerUUID =
-                        StorageCacheUtils.getData(blockMenu.getLocation(), NetworkDirectional.OWNER_KEY);
-                    // There's no owner before... but the new ones has owner.
-                    if (ownerUUID != null) {
-                        final UUID uuid = UUID.fromString(ownerUUID);
-                        final OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(uuid);
-                        if (!Slimefun.getProtectionManager()
-                            .hasPermission(offlinePlayer, item.getLocation(), Interaction.INTERACT_ENTITY)) {
-                            sendFeedback(blockMenu.getLocation(), FeedbackType.NO_PERMISSION);
-                            return;
-                        }
-                    }
-
-                    if (item.getPickupDelay() <= 0 && !SlimefunUtils.hasNoPickupFlag(item)) {
-                        final ItemStack finalPush = item.getItemStack().clone();
-                        final int amount = SupportedPluginManager.getStackAmount(item);
-                        final int maxAmount = item.getItemStack().getMaxStackSize();
-                        if (amount <= 0) {
-                            return;
-                        }
-
-                        if (amount > maxAmount) {
-                            SupportedPluginManager.setStackAmount(item, amount - maxAmount);
-                            finalPush.setAmount(maxAmount);
-                        } else {
-                            finalPush.setAmount(amount);
-                            item.remove();
-                        }
-
-                        blockMenu.replaceExistingItem(inputSlot, finalPush);
-                        ParticleUtils.displayParticleRandomly(item, 1, 5, new Particle.DustOptions(Color.BLUE, 1));
-                        return;
-                    }
+                if (item.isValid() && !item.isDead() && item.getPickupDelay() <= 0 && !SlimefunUtils.hasNoPickupFlag(item)) {
+                    final ItemStack itemStack = item.getItemStack().clone();
+                    blockMenu.replaceExistingItem(inputSlot, itemStack);
+                    blockMenu.markDirty();
+                    ParticleUtils.displayParticleRandomly(item, 1, 5, new Particle.DustOptions(Color.BLUE, 1));
+                    item.remove();
+                } else {
+                    deferEmptyScan(blockMenu.getLocation());
                 }
+                return;
             }
         }
-        sendFeedback(blockMenu.getLocation(), FeedbackType.WORKING);
     }
 
-    private void tryAddItem(@NotNull BlockMenu blockMenu) {
-        final NodeDefinition definition = NetworkStorage.getNode(blockMenu.getLocation());
+    private boolean isScanDue(@Nonnull Location location) {
+        return emptyScanCooldowns.compute(location, (ignored, remaining) ->
+            remaining == null || remaining <= 1 ? null : remaining - 1
+        ) == null;
+    }
 
-        if (definition.getNode() == null) {
-            sendFeedback(blockMenu.getLocation(), FeedbackType.NO_NETWORK_FOUND);
+    private void deferEmptyScan(@Nonnull Location location) {
+        emptyScanCooldowns.put(location, EMPTY_SCAN_DELAY_TICKS);
+    }
+
+    @Override
+    protected void clearCachedState(@Nonnull Location location) {
+        emptyScanCooldowns.remove(location);
+    }
+
+    private void tryAddItem(@Nonnull BlockMenu blockMenu) {
+        final NodeDefinition definition = NetworkStorage.getAllNetworkObjects().get(blockMenu.getLocation());
+
+        if (definition == null || definition.getNode() == null) {
             return;
         }
 
@@ -174,9 +150,15 @@ public class NetworkVacuum extends NetworkObject {
             if (itemStack == null || itemStack.getType() == Material.AIR) {
                 continue;
             }
-            definition.getNode().getRoot().addItemStack0(blockMenu.getLocation(), itemStack);
+            final int consumed = NetworkTransportUtils.pullIntoNetwork(
+                    definition.getNode().getRoot(),
+                    blockMenu.getLocation(),
+                    blockMenu,
+                    inputSlot);
+            if (consumed > 0) {
+                blockMenu.markDirty();
+            }
         }
-        sendFeedback(blockMenu.getLocation(), FeedbackType.WORKING);
     }
 
     @Override
@@ -189,11 +171,10 @@ public class NetworkVacuum extends NetworkObject {
             }
 
             @Override
-            public boolean canOpen(@NotNull Block block, @NotNull Player player) {
-                return player.hasPermission("slimefun.inventory.bypass")
-                    || (NetworkSlimefunItems.NETWORK_VACUUM.canUse(player, false)
+            public boolean canOpen(@Nonnull Block block, @Nonnull Player player) {
+                return NetworkSlimefunItems.NETWORK_VACUUM.canUse(player, false)
                     && Slimefun.getProtectionManager()
-                    .hasPermission(player, block.getLocation(), Interaction.INTERACT_BLOCK));
+                    .hasPermission(player, block.getLocation(), Interaction.INTERACT_BLOCK);
             }
 
             @Override

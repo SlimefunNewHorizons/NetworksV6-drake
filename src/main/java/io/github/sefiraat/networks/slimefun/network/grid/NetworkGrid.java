@@ -1,28 +1,29 @@
 package io.github.sefiraat.networks.slimefun.network.grid;
 
+import io.github.sefiraat.networks.NetworkStorage;
 import io.github.sefiraat.networks.slimefun.NetworkSlimefunItems;
-import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
-import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.github.thebusybiscuit.slimefun4.libraries.dough.protection.Interaction;
-import io.github.thebusybiscuit.slimefun4.utils.ChestMenuUtils;
-import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
-import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
-import me.mrCookieSlime.Slimefun.api.item_transport.ItemTransportFlow;
+import com.github.drakescraft_labs.slimefun4.api.items.ItemGroup;
+import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItemStack;
+import com.github.drakescraft_labs.slimefun4.api.recipes.RecipeType;
+import com.github.drakescraft_labs.slimefun4.implementation.Slimefun;
+import com.github.drakescraft_labs.slimefun4.libraries.dough.protection.Interaction;
+import com.github.drakescraft_labs.slimefun4.legacy.api.inventory.BlockMenu;
+import com.github.drakescraft_labs.slimefun4.legacy.api.inventory.BlockMenuPreset;
+import com.github.drakescraft_labs.slimefun4.legacy.api.item_transport.ItemTransportFlow;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.jetbrains.annotations.NotNull;
 
-import java.util.HashMap;
+import javax.annotation.Nonnull;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-@SuppressWarnings("DuplicatedCode")
 public class NetworkGrid extends AbstractGrid {
 
-    private static final int[] BACKGROUND_SLOTS = {17, 26};
+    private static final int[] BACKGROUND_SLOTS = {
+        17, 26
+    };
 
     private static final int[] DISPLAY_SLOTS = {
         0, 1, 2, 3, 4, 5, 6, 7,
@@ -40,30 +41,32 @@ public class NetworkGrid extends AbstractGrid {
     private static final int PAGE_PREVIOUS = 44;
     private static final int PAGE_NEXT = 53;
 
-    private static final Map<Location, GridCache> CACHE_MAP = new HashMap<>();
+    private static final Map<Location, GridCache> CACHE_MAP = new ConcurrentHashMap<>();
 
     public NetworkGrid(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
         super(itemGroup, item, recipeType, recipe);
+        this.getSlotsToDrop().add(getInputSlot());
     }
 
     @Override
-    @NotNull
+    @Nonnull
     protected BlockMenuPreset getPreset() {
         return new BlockMenuPreset(this.getId(), this.getItemName()) {
 
             @Override
             public void init() {
                 drawBackground(getBackgroundSlots());
-                drawBackground(getDisplaySlots());
                 setSize(54);
             }
 
             @Override
-            public boolean canOpen(@NotNull Block block, @NotNull Player player) {
-                return player.hasPermission("slimefun.inventory.bypass")
-                    || (NetworkSlimefunItems.NETWORK_GRID.canUse(player, false)
-                    && Slimefun.getProtectionManager()
-                    .hasPermission(player, block.getLocation(), Interaction.INTERACT_BLOCK));
+            public boolean canOpen(@Nonnull Block block, @Nonnull Player player) {
+                final var definition = NetworkStorage.getAllNetworkObjects().get(block.getLocation());
+                if (definition != null && definition.getNode() != null) {
+                    definition.getNode().getRoot().getCellMenus();
+                }
+                return NetworkSlimefunItems.NETWORK_GRID.canUse(player, false)
+                    && Slimefun.getProtectionManager().hasPermission(player, block.getLocation(), Interaction.INTERACT_BLOCK);
             }
 
             @Override
@@ -72,50 +75,47 @@ public class NetworkGrid extends AbstractGrid {
             }
 
             @Override
-            public void newInstance(@NotNull BlockMenu menu, @NotNull Block b) {
+            public void newInstance(@Nonnull BlockMenu menu, @Nonnull Block b) {
                 getCacheMap().put(menu.getLocation(), new GridCache(0, 0, GridCache.SortOrder.ALPHABETICAL));
 
                 menu.replaceExistingItem(getPagePrevious(), getPagePreviousStack());
                 menu.addMenuClickHandler(getPagePrevious(), (p, slot, item, action) -> {
-                    GridCache gridCache = getCacheMap().get(menu.getLocation());
-                    gridCache.setPage(gridCache.getPage() <= 0 ? 0 : gridCache.getPage() - 1);
+                    GridCache gridCache = getCache(menu);
+                    gridCache.setPage(GridCache.previousPage(gridCache.getPage()));
                     getCacheMap().put(menu.getLocation(), gridCache);
-                    updateDisplay(menu);
                     return false;
                 });
 
                 menu.replaceExistingItem(getPageNext(), getPageNextStack());
                 menu.addMenuClickHandler(getPageNext(), (p, slot, item, action) -> {
-                    GridCache gridCache = getCacheMap().get(menu.getLocation());
-                    gridCache.setPage(
-                        gridCache.getPage() >= gridCache.getMaxPages()
-                            ? gridCache.getMaxPages()
-                            : gridCache.getPage() + 1);
+                    GridCache gridCache = getCache(menu);
+                    gridCache.setPage(GridCache.nextPage(gridCache.getPage(), gridCache.getMaxPages()));
                     getCacheMap().put(menu.getLocation(), gridCache);
-                    updateDisplay(menu);
                     return false;
                 });
 
                 menu.replaceExistingItem(getChangeSort(), getChangeSortStack());
                 menu.addMenuClickHandler(getChangeSort(), (p, slot, item, action) -> {
-                    GridCache gridCache = getCacheMap().get(menu.getLocation());
-                    AbstractGrid.updateSortOrder(gridCache, action, 2);
+                    GridCache gridCache = getCache(menu);
+                    if (gridCache.getSortOrder() == GridCache.SortOrder.ALPHABETICAL) {
+                        gridCache.setSortOrder(GridCache.SortOrder.NUMBER);
+                    } else {
+                        gridCache.setSortOrder(GridCache.SortOrder.ALPHABETICAL);
+                    }
                     getCacheMap().put(menu.getLocation(), gridCache);
-                    updateDisplay(menu);
                     return false;
                 });
 
                 menu.replaceExistingItem(getFilterSlot(), getFilterStack());
                 menu.addMenuClickHandler(getFilterSlot(), (p, slot, item, action) -> {
-                    GridCache gridCache = getCacheMap().get(menu.getLocation());
-                    setFilter(p, menu, gridCache, action);
-                    getCacheMap().put(menu.getLocation(), gridCache);
-                    return false;
+                    GridCache gridCache = getCache(menu);
+                    return setFilter(p, menu, gridCache, action);
                 });
 
                 for (int displaySlot : getDisplaySlots()) {
-                    menu.replaceExistingItem(displaySlot, ChestMenuUtils.getBackground());
-                    menu.addMenuClickHandler(displaySlot, (p, slot, item, action) -> false);
+                    menu.replaceExistingItem(displaySlot, getBlankSlotStack());
+                    menu.addMenuClickHandler(displaySlot,
+                            (player, slot, item, action) -> handleDisplayClick(player, item, action, menu));
                 }
 
                 menu.addPlayerInventoryClickHandler((p, s, i, a) -> {
@@ -123,17 +123,46 @@ public class NetworkGrid extends AbstractGrid {
                         return true;
                     }
 
-                    // Shift+Left-click
-                    receiveItem(p, i, a, menu);
+                    if (i == null || i.getType() == org.bukkit.Material.AIR) {
+                        return false;
+                    }
+
+                    // Remover del inventario preventivamente contra dupes concurrentes
+                    final ItemStack toInsert = i.clone();
+                    p.getInventory().setItem(s, null);
+                    receiveItem(p, toInsert, a, menu);
+
+                    // Si la red no pudo absorber todo o parte del ítem (ej. red llena, sin celda/barril
+                    // compatible o ítem especial no almacenable como Flight Gem), devolver el remanente (#emilio-flight-gem).
+                    if (toInsert.getAmount() > 0) {
+                        final ItemStack current = p.getInventory().getItem(s);
+                        if (current == null || current.getType() == org.bukkit.Material.AIR) {
+                            p.getInventory().setItem(s, toInsert);
+                        } else {
+                            final java.util.Map<Integer, ItemStack> overflow = p.getInventory().addItem(toInsert);
+                            for (ItemStack leftover : overflow.values()) {
+                                if (leftover != null && leftover.getAmount() > 0) {
+                                    p.getWorld().dropItemNaturally(p.getLocation(), leftover);
+                                }
+                            }
+                        }
+                    }
                     return false;
                 });
             }
         };
     }
 
-    @NotNull
+    @Nonnull
     public Map<Location, GridCache> getCacheMap() {
         return CACHE_MAP;
+    }
+
+    private GridCache getCache(@Nonnull BlockMenu menu) {
+        return CACHE_MAP.computeIfAbsent(
+            menu.getLocation().clone(),
+            location -> new GridCache(0, 0, GridCache.SortOrder.ALPHABETICAL)
+        );
     }
 
     public int[] getBackgroundSlots() {
@@ -163,5 +192,10 @@ public class NetworkGrid extends AbstractGrid {
     @Override
     protected int getFilterSlot() {
         return FILTER;
+    }
+
+    @Override
+    protected void clearCachedState(@Nonnull Location location) {
+        CACHE_MAP.remove(location);
     }
 }

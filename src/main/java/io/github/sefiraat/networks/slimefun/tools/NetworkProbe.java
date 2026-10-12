@@ -1,47 +1,66 @@
 package io.github.sefiraat.networks.slimefun.tools;
 
-import com.balugaq.netex.utils.Lang;
-import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunBlockData;
-import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
-import com.ytdd9527.networksexpansion.core.items.SpecialSlimefunItem;
-import com.ytdd9527.networksexpansion.implementation.ExpansionItemStacks;
+import io.github.sefiraat.networks.NetworkStorage;
 import io.github.sefiraat.networks.network.NetworkRoot;
-import io.github.sefiraat.networks.slimefun.NetworksSlimefunItemStacks;
+import io.github.sefiraat.networks.network.NodeDefinition;
 import io.github.sefiraat.networks.slimefun.network.NetworkController;
+import io.github.sefiraat.networks.slimefun.network.NetworkObject;
 import io.github.sefiraat.networks.utils.Theme;
-import io.github.thebusybiscuit.slimefun4.api.events.PlayerRightClickEvent;
-import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
-import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
-import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
+import com.github.drakescraft_labs.slimefun4.api.events.PlayerRightClickEvent;
+import com.github.drakescraft_labs.slimefun4.api.items.ItemGroup;
+import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItem;
+import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItemStack;
+import com.github.drakescraft_labs.slimefun4.api.recipes.RecipeType;
+import com.github.drakescraft_labs.slimefun4.core.handlers.ItemUseHandler;
+import com.github.drakescraft_labs.slimefun4.legacy.api.BlockStorage;
 import net.md_5.bungee.api.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
+import javax.annotation.Nonnull;
 import java.text.MessageFormat;
+import java.text.NumberFormat;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
-public class NetworkProbe extends SpecialSlimefunItem implements CanCooldown {
+public class NetworkProbe extends SlimefunItem implements CanCooldown {
 
-    public static final String SPACES = " ".repeat(32);
     private static final MessageFormat MESSAGE_FORMAT = new MessageFormat("{0}{1}: {2}{3}", Locale.ROOT);
 
-    public NetworkProbe(
-        @NotNull ItemGroup itemGroup,
-        @NotNull SlimefunItemStack item,
-        @NotNull RecipeType recipeType,
-        ItemStack @NotNull [] recipe) {
+    public NetworkProbe(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
         super(itemGroup, item, recipeType, recipe);
+
     }
 
-    @SuppressWarnings("deprecation")
-    private static void displayToPlayer(@NotNull Block block, @NotNull Player player) {
+    @Override
+    public void preRegister() {
+        addItemHandler((ItemUseHandler) this::onUse);
+    }
+
+    protected void onUse(PlayerRightClickEvent e) {
+        final Optional<Block> optional = e.getClickedBlock();
+        if (optional.isPresent()) {
+            final Block block = optional.get();
+            final Player player = e.getPlayer();
+            if (canBeUsed(player, e.getItem())) {
+                final SlimefunItem slimefunItem = BlockStorage.check(block);
+                if (slimefunItem instanceof NetworkController) {
+                    e.cancel();
+                    displayToPlayer(block, player);
+                    putOnCooldown(e.getItem());
+                } else if (slimefunItem instanceof NetworkObject) {
+                    e.cancel();
+                    displayNodeToPlayer(block, player, (NetworkObject) slimefunItem);
+                    putOnCooldown(e.getItem());
+                }
+            }
+        }
+    }
+
+    private void displayToPlayer(@Nonnull Block block, @Nonnull Player player) {
         final NetworkRoot root = NetworkController.getNetworks().get(block.getLocation());
         if (root != null) {
             final int bridges = root.getBridges().size();
@@ -58,182 +77,97 @@ public class NetworkProbe extends SpecialSlimefunItem implements CanCooldown {
             final int purgers = root.getPurgers().size();
             final int crafters = root.getCrafters().size();
             final int powerNodes = root.getPowerNodes().size();
+            final int powerOutlets = root.getPowerOutlets().size();
             final int powerDisplays = root.getPowerDisplays().size();
             final int encoders = root.getEncoders().size();
             final int wirelessTransmitters = root.getWirelessTransmitters().size();
             final int wirelessReceivers = root.getWirelessReceivers().size();
-            final int powerOutlets = root.getPowerOutlets().size();
-            final int greedyBlocks = root.getGreedyBlocks().size();
+            final long rootPower = root.getRootPower();
 
-            final int advancedImporters = root.getAdvancedImporters().size();
-            final int advancedExporters = root.getAdvancedExporters().size();
-            final int advancedGreedyBlocks = root.getAdvancedGreedyBlocks().size();
-            final int advancedPurgers = root.getAdvancedPurgers().size();
-            final int advancedVacuums = root.getAdvancedVacuums().size();
-            final int transferPushers = root.getTransferPushers().size();
-            final int transferGrabbers = root.getTransferGrabbers().size();
-            final int transfers = root.getTransfers().size();
-            final int lineTransferVanillaPushers =
-                root.getLineTransferVanillaPushers().size();
-            final int lineTransferVanillaGrabbers =
-                root.getLineTransferVanillaGrabbers().size();
-            final int inputOnlyMonitor = root.getInputOnlyMonitors().size();
-            final int outputOnlyMonitor = root.getOutputOnlyMonitors().size();
-            final int linePowerOutlets = root.getLinePowerOutlets().size();
-            final int decoders = root.getDecoders().size();
-            final int quantumManagers = root.getQuantumManagers().size();
-            final int drawerManagers = root.getDrawerManagers().size();
-            final int crafterManagers = root.getCrafterManagers().size();
-            final int itemFlowViewers = root.getItemFlowViewers().size();
-            final int advancedWirelessTransmitters = root.getAdvancedWirelessTransmitters().size();
-            final int aeSwitchers = root.getAeSwitchers().size();
-            final int itemDifferenters = root.getItemDifferenters().size();
-            final int storageCardConverters = root.getStorageCardConverters().size();
-            final int facingPresetters = root.getFacingPresetters().size();
-
-            final Map<ItemStack, Long> allNetworkItems = root.getAllNetworkItemsLongTypeView();
+            final Map<ItemStack, Integer> allNetworkItems = root.getAllNetworkItems();
             final int distinctItems = allNetworkItems.size();
-
-            long totalItems = allNetworkItems.values().stream()
-                .mapToLong(integer -> integer)
-                .sum();
+            long totalItems = allNetworkItems.values().stream().mapToLong(integer -> integer).sum();
 
             final String nodeCount = root.getNodeCount() >= root.getMaxNodes()
-                ? Theme.ERROR + String.valueOf(root.getNodeCount()) + "+"
+                ? Theme.ERROR + "" + root.getNodeCount() + "+"
                 : String.valueOf(root.getNodeCount());
 
             final ChatColor c = Theme.CLICK_INFO.getColor();
-            final ChatColor p = Theme.SUCCESS.getColor();
+            final ChatColor p = Theme.PASSIVE.getColor();
 
-            player.sendMessage(Lang.getString("messages.completed-operation.probe.split"));
-            player.sendMessage(Lang.getString("messages.completed-operation.probe.expansion_title"));
-            player.sendMessage(Lang.getString("messages.completed-operation.probe.split"));
-            player.sendMessage(formatter(ExpansionItemStacks.NETWORK_BLUEPRINT_DECODER.getDisplayName(), decoders));
-            player.sendMessage(formatter(ExpansionItemStacks.QUANTUM_MANAGER.getDisplayName(), quantumManagers));
-            player.sendMessage(formatter(ExpansionItemStacks.DRAWER_MANAGER.getDisplayName(), drawerManagers));
-            player.sendMessage(formatter(ExpansionItemStacks.CRAFTER_MANAGER.getDisplayName(), crafterManagers));
-            player.sendMessage(formatter(ExpansionItemStacks.ITEM_FLOW_VIEWER.getDisplayName(), itemFlowViewers));
-            player.sendMessage(formatter(ExpansionItemStacks.ADVANCED_WIRELESS_TRANSMITTER.getDisplayName(), advancedWirelessTransmitters));
-            player.sendMessage(formatter(Lang.getString("icons.ae_switcher.name"), aeSwitchers));
-            player.sendMessage(formatter(ExpansionItemStacks.ITEM_DIFFERENTER.getDisplayName(), itemDifferenters));
-            player.sendMessage(formatter(ExpansionItemStacks.STORAGE_CARD_CONVERTER.getDisplayName(), storageCardConverters));
-            player.sendMessage(formatter(ExpansionItemStacks.FACING_PRESETTER.getDisplayName(), facingPresetters));
-            player.sendMessage(formatter(ExpansionItemStacks.ADVANCED_IMPORT.getDisplayName(), advancedImporters));
-            player.sendMessage(formatter(ExpansionItemStacks.ADVANCED_EXPORT.getDisplayName(), advancedExporters));
-            player.sendMessage(
-                formatter(ExpansionItemStacks.ADVANCED_GREEDY_BLOCK.getDisplayName(), advancedGreedyBlocks));
-            player.sendMessage(formatter(ExpansionItemStacks.ADVANCED_PURGER.getDisplayName(), advancedPurgers));
-            player.sendMessage(formatter(ExpansionItemStacks.ADVANCED_VACUUM.getDisplayName(), advancedVacuums));
-            player.sendMessage(formatter(ExpansionItemStacks.TRANSFER.getDisplayName(), transfers));
-            player.sendMessage(formatter(ExpansionItemStacks.TRANSFER_GRABBER.getDisplayName(), transferGrabbers));
-            player.sendMessage(formatter(ExpansionItemStacks.TRANSFER_PUSHER.getDisplayName(), transferPushers));
-            player.sendMessage(formatter(
-                ExpansionItemStacks.LINE_TRANSFER_VANILLA_PUSHER.getDisplayName(), lineTransferVanillaPushers));
-            player.sendMessage(formatter(
-                ExpansionItemStacks.LINE_TRANSFER_VANILLA_GRABBER.getDisplayName(), lineTransferVanillaGrabbers));
-            player.sendMessage(
-                formatter(ExpansionItemStacks.NETWORK_INPUT_ONLY_MONITOR.getDisplayName(), inputOnlyMonitor));
-            player.sendMessage(
-                formatter(ExpansionItemStacks.NETWORK_OUTPUT_ONLY_MONITOR.getDisplayName(), outputOnlyMonitor));
-            player.sendMessage(formatter(
-                stringOrSpaces(ExpansionItemStacks.LINE_POWER_OUTLET_1.getDisplayName())
-                    .substring(0, 6),
-                linePowerOutlets));
+            player.sendMessage("------------------------------");
+            player.sendMessage("       Network Summary        ");
+            player.sendMessage("------------------------------");
 
-            player.sendMessage(Lang.getString("messages.completed-operation.probe.split"));
-            player.sendMessage(Lang.getString("messages.completed-operation.probe.networks_title"));
-            player.sendMessage(Lang.getString("messages.completed-operation.probe.split"));
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Bridges", p, bridges}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Monitors", p, monitors}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Importers", p, importers}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Exporters", p, exporters}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Grids", p, grids}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Cells", p, cells}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Grabbers", p, grabbers}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Pushers", p, pushers}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Cutters", p, cutters}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Pasters", p, pasters}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Vacuums", p, vacuums}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Purgers", p, purgers}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Crafters", p, crafters}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Power Nodes", p, powerNodes}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Power Outlets", p, powerOutlets}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Power Displays", p, powerDisplays}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Encoders", p, encoders}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Wireless Transmitters", p, wirelessTransmitters}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Wireless Receivers", p, wirelessReceivers}, new StringBuffer(), null).toString());
 
-            player.sendMessage(formatter(NetworksSlimefunItemStacks.NETWORK_BRIDGE.getDisplayName(), bridges));
-            player.sendMessage(formatter(NetworksSlimefunItemStacks.NETWORK_MONITOR.getDisplayName(), monitors));
-            player.sendMessage(formatter(NetworksSlimefunItemStacks.NETWORK_IMPORT.getDisplayName(), importers));
-            player.sendMessage(formatter(NetworksSlimefunItemStacks.NETWORK_EXPORT.getDisplayName(), exporters));
-            player.sendMessage(formatter(NetworksSlimefunItemStacks.NETWORK_GRID.getDisplayName(), grids));
-            player.sendMessage(formatter(NetworksSlimefunItemStacks.NETWORK_CELL.getDisplayName(), cells));
-            player.sendMessage(formatter(NetworksSlimefunItemStacks.NETWORK_GRABBER.getDisplayName(), grabbers));
-            player.sendMessage(formatter(NetworksSlimefunItemStacks.NETWORK_PUSHER.getDisplayName(), pushers));
-            player.sendMessage(formatter(NetworksSlimefunItemStacks.NETWORK_PURGER.getDisplayName(), purgers));
-            player.sendMessage(formatter(NetworksSlimefunItemStacks.NETWORK_AUTO_CRAFTER.getDisplayName(), crafters));
-            player.sendMessage(formatter(
-                stringOrSpaces(NetworksSlimefunItemStacks.NETWORK_CAPACITOR_1.getDisplayName())
-                    .substring(0, 4),
-                powerNodes));
-            player.sendMessage(
-                formatter(NetworksSlimefunItemStacks.NETWORK_POWER_DISPLAY.getDisplayName(), powerDisplays));
-            player.sendMessage(formatter(NetworksSlimefunItemStacks.NETWORK_RECIPE_ENCODER.getDisplayName(), encoders));
-            player.sendMessage(formatter(NetworksSlimefunItemStacks.NETWORK_CONTROL_X.getDisplayName(), cutters));
-            player.sendMessage(formatter(NetworksSlimefunItemStacks.NETWORK_CONTROL_V.getDisplayName(), pasters));
-            player.sendMessage(formatter(NetworksSlimefunItemStacks.NETWORK_VACUUM.getDisplayName(), vacuums));
-            player.sendMessage(formatter(
-                NetworksSlimefunItemStacks.NETWORK_WIRELESS_TRANSMITTER.getDisplayName(), wirelessTransmitters));
-            player.sendMessage(formatter(
-                NetworksSlimefunItemStacks.NETWORK_WIRELESS_RECEIVER.getDisplayName(), wirelessReceivers));
-            player.sendMessage(formatter(
-                stringOrSpaces(NetworksSlimefunItemStacks.NETWORK_POWER_OUTLET_1.getDisplayName())
-                    .substring(0, 4),
-                powerOutlets));
-            player.sendMessage(
-                formatter(NetworksSlimefunItemStacks.NETWORK_GREEDY_BLOCK.getDisplayName(), greedyBlocks));
+            player.sendMessage("------------------------------");
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Distinct Items", p, distinctItems}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Total Items", p, totalItems}, new StringBuffer(), null).toString());
 
-            player.sendMessage(Lang.getString("messages.completed-operation.probe.split"));
-            player.sendMessage(
-                formatter(Lang.getString("messages.completed-operation.probe.distinct_items"), distinctItems));
-            player.sendMessage(formatter(Lang.getString("messages.completed-operation.probe.total_items"), totalItems));
-            player.sendMessage(Lang.getString("messages.completed-operation.probe.split"));
-            player.sendMessage(String.format(
-                Lang.getString("messages.completed-operation.probe.total_nodes"), nodeCount, root.getMaxNodes()));
+            player.sendMessage("------------------------------");
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Throughput", p, String.format(Locale.ROOT, "%.1f items/s", root.getThroughput().getItemsPerSecond())}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Total Routed", p, NumberFormat.getInstance().format(root.getThroughput().getTotalTransferredItems()) + " items"}, new StringBuffer(), null).toString());
+
+            player.sendMessage("------------------------------");
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Root Power", p, rootPower}, new StringBuffer(), null).toString());
+
+            player.sendMessage("------------------------------");
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Total Nodes", p, nodeCount + "/" + root.getMaxNodes()}, new StringBuffer(), null).toString());
             if (root.isOverburdened()) {
-                player.sendMessage(Lang.getString("messages.completed-operation.probe.overburdened"));
+                player.sendMessage(Theme.ERROR + "Warning: " + Theme.PASSIVE +
+                                       "Your network has reached or exceeded the maximum node limit. " +
+                                       "Nodes beyond the limit will not function, which nodes these are " +
+                                       "may not always be the same. Reduce your total nodes."
+                );
             }
         }
     }
 
-    public static @NotNull String formatter(String name, long count) {
-        return MESSAGE_FORMAT
-            .format(
-                new Object[]{Theme.CLICK_INFO.getColor(), name, Theme.SUCCESS.getColor(), count},
-                new StringBuffer(),
-                null)
-            .toString();
-    }
+    private void displayNodeToPlayer(@Nonnull Block block, @Nonnull Player player, @Nonnull NetworkObject nodeObject) {
+        final Location loc = block.getLocation();
+        final NodeDefinition definition = NetworkStorage.getAllNetworkObjects().get(loc);
+        final ChatColor c = Theme.CLICK_INFO.getColor();
+        final ChatColor p = Theme.PASSIVE.getColor();
 
-    public static @NotNull String formatter(String name, String s) {
-        return MESSAGE_FORMAT
-            .format(
-                new Object[]{Theme.CLICK_INFO.getColor(), name, Theme.SUCCESS.getColor(), s},
-                new StringBuffer(),
-                null)
-            .toString();
-    }
+        player.sendMessage("§8§m------------------------------");
+        player.sendMessage("§6§l      Network Node Info       ");
+        player.sendMessage("§8§m------------------------------");
+        player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Node Type", p, nodeObject.getNodeType().name()}, new StringBuffer(), null).toString());
 
-    public static @NotNull String stringOrSpaces(@Nullable String s) {
-        return s == null ? SPACES : s;
-    }
-
-    @Override
-    public void preRegister() {
-        addItemHandler((ItemUseHandler) this::onUse);
-    }
-
-    protected void onUse(@NotNull PlayerRightClickEvent e) {
-        final Optional<Block> optional = e.getClickedBlock();
-        if (optional.isPresent()) {
-            final Block block = optional.get();
-            final Player player = e.getPlayer();
-            if (canBeUsed(player, e.getItem())) {
-                SlimefunBlockData blockData = StorageCacheUtils.getBlock(block.getLocation());
-                if (blockData == null) {
-                    return;
-                }
-
-                SlimefunItem slimefunItem = SlimefunItem.getById(blockData.getSfId());
-                if (slimefunItem instanceof NetworkController) {
-                    e.cancel();
-                    displayToPlayer(block, player);
-                    putOnCooldown(e.getItem());
-                }
+        if (definition != null && definition.getNode() != null) {
+            final NetworkRoot root = definition.getNode().getRoot();
+            final Location ctrlLoc = root.getController();
+            if (ctrlLoc != null) {
+                player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Controller", p, ctrlLoc.getBlockX() + ", " + ctrlLoc.getBlockY() + ", " + ctrlLoc.getBlockZ()}, new StringBuffer(), null).toString());
             }
+            final double nodeTps = root.getThroughput().getNodeItemsPerSecond(loc);
+            final long nodeTotal = root.getThroughput().getNodeTotalTransferred(loc);
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Node Flow", p, String.format(Locale.ROOT, "%.1f items/s", nodeTps)}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Node Total", p, NumberFormat.getInstance().format(nodeTotal) + " items"}, new StringBuffer(), null).toString());
+            player.sendMessage(MESSAGE_FORMAT.format(new Object[]{c, "Net Throughput", p, String.format(Locale.ROOT, "%.1f items/s", root.getThroughput().getItemsPerSecond())}, new StringBuffer(), null).toString());
+        } else {
+            player.sendMessage("§cEste nodo no está conectado a una red activa.");
         }
+        player.sendMessage("§8§m------------------------------");
     }
 
     @Override

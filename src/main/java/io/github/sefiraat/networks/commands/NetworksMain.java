@@ -1,929 +1,329 @@
 package io.github.sefiraat.networks.commands;
 
-import com.balugaq.netex.api.algorithm.Calculator;
-import com.balugaq.netex.api.data.ItemContainer;
-import com.balugaq.netex.api.data.StorageUnitData;
-import com.balugaq.netex.api.enums.ErrorType;
-import com.balugaq.netex.utils.InventoryUtil;
-import com.balugaq.netex.utils.Lang;
-import com.balugaq.netex.utils.MapUtil;
-import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunBlockData;
-import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
-import com.ytdd9527.networksexpansion.core.items.unusable.Blueprint;
-import com.ytdd9527.networksexpansion.implementation.machines.unit.NetworksDrawer;
-import io.github.bakedlibs.dough.collections.Pair;
-import io.github.sefiraat.networks.network.NetworkRoot;
-import io.github.sefiraat.networks.network.stackcaches.BlueprintInstance;
-import io.github.sefiraat.networks.network.stackcaches.ItemRequest;
 import io.github.sefiraat.networks.network.stackcaches.QuantumCache;
-import io.github.sefiraat.networks.slimefun.NetworksSlimefunItemStacks;
-import io.github.sefiraat.networks.slimefun.network.AdminDebuggable;
+import io.github.sefiraat.networks.network.NetworkRoot;
+import io.github.sefiraat.networks.NetworkStorage;
+import io.github.sefiraat.networks.slimefun.NetworkSlimefunItems;
+import io.github.sefiraat.networks.slimefun.network.NetworkController;
+import io.github.sefiraat.networks.slimefun.network.NetworkObject;
 import io.github.sefiraat.networks.slimefun.network.NetworkQuantumStorage;
 import io.github.sefiraat.networks.utils.Keys;
-import io.github.sefiraat.networks.utils.StackUtils;
+import io.github.sefiraat.networks.utils.Theme;
 import io.github.sefiraat.networks.utils.datatypes.DataTypeMethods;
 import io.github.sefiraat.networks.utils.datatypes.PersistentQuantumStorageType;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
-import org.bukkit.ChatColor;
-import org.bukkit.FluidCollisionMode;
-import org.bukkit.Location;
+import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItem;
 import org.bukkit.Material;
-import org.bukkit.block.Block;
 import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.TabExecutor;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.block.Block;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.map.MapView;
-import org.bukkit.util.StringUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
+import javax.annotation.Nonnull;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.stream.Collectors;
 
-@SuppressWarnings({"deprecation", "DuplicatedCode"})
-public class NetworksMain implements TabExecutor {
-    public NetworksMain() {
-    }
+public class NetworksMain implements CommandExecutor, TabCompleter {
 
-    public static @NotNull String locationToString(@Nullable Location l) {
-        if (l == null) {
-            return Lang.getString("icons.drawer.location_error.unknown");
-        }
-        if (l.getWorld() == null) {
-            return Lang.getString("icons.drawer.location_error.unknown");
-        }
-        return l.getWorld().getName() + "," + l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ();
-    }
+    private static final List<String> SUBCOMMANDS = List.of("doctor", "inspect", "reload", "repair", "fillquantum");
 
-    public static void viewLog(@NotNull Player player) {
-        final Block targetBlock = player.getTargetBlockExact(8, FluidCollisionMode.NEVER);
-        if (targetBlock == null || targetBlock.getType() == Material.AIR) {
-            player.sendMessage(Lang.getString("messages.commands.must-admin-debuggable"));
-            return;
-        }
+    private static final Map<Integer, NetworkQuantumStorage> QUANTUM_REPLACEMENT_MAP = new HashMap<>();
 
-        final SlimefunItem slimefunItem = StorageCacheUtils.getSfItem(targetBlock.getLocation());
-        if (slimefunItem == null) {
-            player.sendMessage(Lang.getString("messages.commands.must-admin-debuggable"));
-            return;
-        }
-
-        if (!(slimefunItem instanceof AdminDebuggable debuggable)) {
-            player.sendMessage(Lang.getString("messages.commands.must-admin-debuggable"));
-            return;
-        }
-
-        if (debuggable.hasViewer(player)) {
-            debuggable.removeViewer(player);
-            player.sendMessage(Lang.getString("messages.commands.viewer-removed"));
-        } else {
-            debuggable.addViewer(player);
-            player.sendMessage(Lang.getString("messages.commands.viewer-added"));
-        }
-    }
-
-    public static void setQuantum(@NotNull Player player, long amount) {
-        final Block targetBlock = player.getTargetBlockExact(8, FluidCollisionMode.NEVER);
-        if (targetBlock == null || targetBlock.getType() == Material.AIR) {
-            player.sendMessage(Lang.getString("messages.commands.must-look-at-quantum-storage"));
-            return;
-        }
-
-        final SlimefunBlockData blockData = StorageCacheUtils.getBlock(targetBlock.getLocation());
-        if (blockData == null) {
-            player.sendMessage(Lang.getString("messages.commands.must-look-at-quantum-storage"));
-            return;
-        }
-
-        final SlimefunItem slimefunItem = StorageCacheUtils.getSfItem(targetBlock.getLocation());
-        if (slimefunItem == null) {
-            player.sendMessage(Lang.getString("messages.commands.must-look-at-quantum-storage"));
-            return;
-        }
-
-        final Location targetLocation = targetBlock.getLocation();
-        if (!(slimefunItem instanceof NetworkQuantumStorage)) {
-            player.sendMessage(Lang.getString("messages.commands.invalid-quantum-storage"));
-            return;
-        }
-
-        final BlockMenu blockMenu = StorageCacheUtils.getMenu(targetLocation);
-        if (blockMenu == null) {
-            player.sendMessage(Lang.getString("messages.commands.invalid-quantum-storage"));
-            return;
-        }
-
-        final QuantumCache cache = NetworkQuantumStorage.getCaches().get(blockMenu.getLocation());
-        final ItemStack itemInHand = player.getInventory().getItemInMainHand();
-        if ((cache.getItemStack() == null || cache.getItemStack().getType() == Material.AIR)
-            && itemInHand.getType() == Material.AIR) {
-            player.sendMessage(Lang.getString("messages.commands.must-hand-item"));
-            return;
-        }
-        final ItemStack clone = (itemInHand.getType() == Material.AIR ? cache.getItemStack() : itemInHand).clone();
-        NetworkQuantumStorage.setItem(blockMenu, clone, amount);
-
-        clone.setAmount(1);
-        cache.setItemStack(clone);
-        cache.setAmount(Math.min(amount, cache.getLimitLong()));
-        NetworkQuantumStorage.updateDisplayItem(blockMenu, cache);
-        NetworkQuantumStorage.syncBlock(blockMenu.getLocation(), cache);
-        NetworkQuantumStorage.getCaches().put(blockMenu.getLocation(), cache);
-    }
-
-    private static void addStorageItem(@NotNull Player player, int amount) {
-        final Block targetBlock = player.getTargetBlockExact(8, FluidCollisionMode.NEVER);
-        if (targetBlock == null || targetBlock.getType() == Material.AIR) {
-            player.sendMessage(Lang.getString("messages.commands.must-look-at-drawer"));
-            return;
-        }
-
-        final ItemStack itemInHand = player.getInventory().getItemInMainHand();
-        if (itemInHand.getType() == Material.AIR) {
-            player.sendMessage(Lang.getString("messages.commands.must-hand-item"));
-            return;
-        }
-
-        final SlimefunBlockData blockData = StorageCacheUtils.getBlock(targetBlock.getLocation());
-        if (blockData == null) {
-            player.sendMessage(Lang.getString("messages.commands.must-look-at-drawer"));
-            return;
-        }
-
-        final SlimefunItem slimefunItem = StorageCacheUtils.getSfItem(targetBlock.getLocation());
-        if (slimefunItem == null) {
-            player.sendMessage(Lang.getString("messages.commands.must-look-at-drawer"));
-            return;
-        }
-
-        if (!(slimefunItem instanceof NetworksDrawer)) {
-            player.sendMessage(Lang.getString("messages.commands.must-look-at-drawer"));
-        }
-
-        final Location targetLocation = targetBlock.getLocation();
-        final ItemStack clone = itemInHand.clone();
-        final StorageUnitData data = NetworksDrawer.getStorageData(targetLocation);
-
-        if (data == null) {
-            player.sendMessage(Lang.getString("messages.commands.invalid-drawer"));
-            return;
-        }
-
-        clone.setAmount(amount);
-        data.depositItemStack(clone, false);
-        NetworksDrawer.setStorageData(targetLocation, data);
-        player.sendMessage(Lang.getString("messages.commands.updated-drawer"));
-    }
-
-    private static void reduceStorageItem(@NotNull Player player, int amount) {
-        final Block targetBlock = player.getTargetBlockExact(8, FluidCollisionMode.NEVER);
-        if (targetBlock == null || targetBlock.getType() == Material.AIR) {
-            player.sendMessage(Lang.getString("messages.commands.must-look-at-drawer"));
-            return;
-        }
-
-        final ItemStack itemInHand = player.getInventory().getItemInMainHand();
-        if (itemInHand.getType() == Material.AIR) {
-            player.sendMessage(Lang.getString("messages.commands.must-hand-item"));
-            return;
-        }
-
-        final SlimefunBlockData blockData = StorageCacheUtils.getBlock(targetBlock.getLocation());
-        if (blockData == null) {
-            player.sendMessage(Lang.getString("messages.commands.must-look-at-drawer"));
-            return;
-        }
-
-        final SlimefunItem slimefunItem = StorageCacheUtils.getSfItem(targetBlock.getLocation());
-        if (slimefunItem == null) {
-            player.sendMessage(Lang.getString("messages.commands.must-look-at-drawer"));
-            return;
-        }
-
-        if (!(slimefunItem instanceof NetworksDrawer)) {
-            player.sendMessage(Lang.getString("messages.commands.must-look-at-drawer"));
-        }
-
-        final Location targetLocation = targetBlock.getLocation();
-        final ItemStack clone = itemInHand.clone();
-        final StorageUnitData data = NetworksDrawer.getStorageData(targetLocation);
-
-        if (data == null) {
-            player.sendMessage(Lang.getString("messages.commands.invalid-drawer"));
-            return;
-        }
-
-        clone.setAmount(1);
-        data.requestItem(new ItemRequest(clone, amount));
-        NetworksDrawer.setStorageData(targetLocation, data);
-        player.sendMessage(Lang.getString("messages.commands.updated-drawer"));
-    }
-
-    public static void setContainerId(@NotNull Player player, int containerId) {
-        final Block targetBlock = player.getTargetBlockExact(8, FluidCollisionMode.NEVER);
-        if (targetBlock == null || targetBlock.getType() == Material.AIR) {
-            player.sendMessage(Lang.getString("messages.commands.must-look-at-drawer"));
-            return;
-        }
-
-        final SlimefunItem slimefunItem = StorageCacheUtils.getSfItem(targetBlock.getLocation());
-        if (slimefunItem == null) {
-            player.sendMessage(Lang.getString("messages.commands.must-look-at-drawer"));
-            return;
-        }
-
-        if (!(slimefunItem instanceof NetworksDrawer)) {
-            player.sendMessage(Lang.getString("messages.commands.must-look-at-drawer"));
-            return;
-        }
-
-        final Location location = targetBlock.getLocation();
-
-        player.sendMessage(Lang.getString("messages.commands.wait-for-data"));
-        NetworksDrawer.requestData(location, containerId);
-        player.sendMessage(String.format(
-            Lang.getString("messages.commands.set-container-id"), locationToString(location), containerId));
-    }
-
-    private static void updateItem(@NotNull Player player) {
-        final ItemStack itemInHand = player.getInventory().getItemInMainHand();
-        final SlimefunItem slimefunItem = SlimefunItem.getByItem(itemInHand);
-        if (slimefunItem == null) {
-            player.sendMessage(Lang.getString("messages.commands.not-a-slimefun-item"));
-            return;
-        }
-
-        final String currentId = slimefunItem.getId();
-        if (slimefunItem instanceof NetworksDrawer) {
-            player.sendMessage(Lang.getString("messages.commands.cannot-update-cargo-storage-unit"));
-        } else if (slimefunItem instanceof NetworkQuantumStorage) {
-            final ItemMeta meta = itemInHand.getItemMeta();
-            QuantumCache quantumCache = Keys.getQuantumCache(meta);
-
-            if (quantumCache == null || quantumCache.getItemStack() == null) {
-                SlimefunItem sf = SlimefunItem.getById(currentId);
-                if (sf != null) {
-                    itemInHand.setItemMeta(sf.getItem().getItemMeta());
-                }
-                player.sendMessage(Lang.getString("messages.commands.updated-item"));
-                return;
-            }
-
-            final ItemStack stored = quantumCache.getItemStack();
-            final SlimefunItem sfi = SlimefunItem.getByItem(stored);
-            if (sfi != null) {
-                final String quantumStoredId = sfi.getId();
-                SlimefunItem sf = SlimefunItem.getById(quantumStoredId);
-                if (sf != null) {
-                    stored.setItemMeta(sf.getItem().getItemMeta());
-                }
-                player.sendMessage(Lang.getString("messages.commands.updated-item-in-quantum-storage"));
-            }
-            DataTypeMethods.setCustom(
-                meta, Keys.QUANTUM_STORAGE_INSTANCE, PersistentQuantumStorageType.TYPE, quantumCache);
-            quantumCache.updateMetaLore(meta);
-            itemInHand.setItemMeta(meta);
-            player.sendMessage(Lang.getString("messages.commands.updated-item"));
-        } else {
-            SlimefunItem sf = SlimefunItem.getById(currentId);
-            if (sf != null) {
-                itemInHand.setItemMeta(sf.getItem().getItemMeta());
-            }
-            player.sendMessage(Lang.getString("messages.commands.updated-item"));
-        }
-    }
-
-    public static void getStorageItem(@NotNull Player player, int slot) {
-        final Block targetBlock = player.getTargetBlockExact(8, FluidCollisionMode.NEVER);
-        if (targetBlock == null || targetBlock.getType() == Material.AIR) {
-            player.sendMessage(Lang.getString("messages.commands.must-look-at-drawer"));
-            return;
-        }
-
-        final SlimefunBlockData blockData = StorageCacheUtils.getBlock(targetBlock.getLocation());
-        if (blockData == null) {
-            player.sendMessage(Lang.getString("messages.commands.must-look-at-drawer"));
-            return;
-        }
-
-        final SlimefunItem slimefunItem = StorageCacheUtils.getSfItem(targetBlock.getLocation());
-        if (slimefunItem == null) {
-            player.sendMessage(Lang.getString("messages.commands.must-look-at-drawer"));
-            return;
-        }
-
-        if (!(slimefunItem instanceof NetworksDrawer)) {
-            player.sendMessage(Lang.getString("messages.commands.must-look-at-drawer"));
-        }
-
-        final Location targetLocation = targetBlock.getLocation();
-        final StorageUnitData data = NetworksDrawer.getStorageData(targetLocation);
-
-        if (data == null) {
-            player.sendMessage(Lang.getString("messages.commands.invalid-drawer"));
-            return;
-        }
-
-        final List<ItemContainer> stored = data.getStoredItems();
-        if (slot >= stored.size()) {
-            player.sendMessage(String.format(Lang.getString("messages.commands.invalid-slot"), stored.size() - 1));
-        } else {
-            final ItemStack stack = stored.get(slot).getSampleDirectly();
-            if (stack == null || stack.getType() == Material.AIR) {
-                player.sendMessage(Lang.getString("messages.commands.empty-slot"));
-                return;
-            }
-
-            InventoryUtil.addItem(player, StackUtils.getAsQuantity(stack, 1));
-        }
-    }
-
-    public static void help(@NotNull CommandSender sender, @Nullable String mainCommand) {
-        if (mainCommand == null) {
-            for (String message : Lang.getStringList("messages.commands.help")) {
-                sender.sendMessage(message);
-            }
-            return;
-        }
-        switch (mainCommand.toLowerCase(Locale.ROOT)) {
-            case "help" -> {
-                for (String message : Lang.getStringList("messages.commands.example.help")) {
-                    sender.sendMessage(message);
-                }
-            }
-            case "fillquantum" -> {
-                for (String message : Lang.getStringList("messages.commands.example.fillquantum")) {
-                    sender.sendMessage(message);
-                }
-            }
-            case "fixblueprint" -> {
-                for (String message : Lang.getStringList("messages.commands.example.fixblueprint")) {
-                    sender.sendMessage(message);
-                }
-            }
-            case "addstorageitem" -> {
-                for (String message : Lang.getStringList("messages.commands.example.addstorageitem")) {
-                    sender.sendMessage(message);
-                }
-            }
-            case "reducestorageitem" -> {
-                for (String message : Lang.getStringList("messages.commands.example.reducestorageitem")) {
-                    sender.sendMessage(message);
-                }
-            }
-            case "setquantum" -> {
-                for (String message : Lang.getStringList("messages.commands.example.setquantum")) {
-                    sender.sendMessage(message);
-                }
-            }
-            case "setcontainerid" -> {
-                for (String message : Lang.getStringList("messages.commands.example.setcontainerid")) {
-                    sender.sendMessage(message);
-                }
-            }
-            case "getstorageitem" -> {
-                for (String message : Lang.getStringList("messages.commands.example.getstorageitem")) {
-                    sender.sendMessage(message);
-                }
-            }
-            case "worldedit" -> {
-                for (String message : Lang.getStringList("messages.commands.example.worldedit")) {
-                    sender.sendMessage(message);
-                }
-            }
-            case "updateitem" -> {
-                for (String message : Lang.getStringList("messages.commands.example.updateitem")) {
-                    sender.sendMessage(message);
-                }
-            }
-            case "viewlog" -> {
-                for (String message : Lang.getStringList("messages.commands.example.viewlog")) {
-                    sender.sendMessage(message);
-                }
-            }
-            default -> {
-                for (String message : Lang.getStringList("messages.commands.example.unknown-command")) {
-                    sender.sendMessage(message);
-                }
-            }
-        }
+    static {
+        QUANTUM_REPLACEMENT_MAP.put(4096, NetworkSlimefunItems.NETWORK_QUANTUM_STORAGE_1);
+        QUANTUM_REPLACEMENT_MAP.put(32768, NetworkSlimefunItems.NETWORK_QUANTUM_STORAGE_2);
+        QUANTUM_REPLACEMENT_MAP.put(262144, NetworkSlimefunItems.NETWORK_QUANTUM_STORAGE_3);
+        QUANTUM_REPLACEMENT_MAP.put(2097152, NetworkSlimefunItems.NETWORK_QUANTUM_STORAGE_4);
+        QUANTUM_REPLACEMENT_MAP.put(16777216, NetworkSlimefunItems.NETWORK_QUANTUM_STORAGE_5);
+        QUANTUM_REPLACEMENT_MAP.put(134217728, NetworkSlimefunItems.NETWORK_QUANTUM_STORAGE_6);
+        QUANTUM_REPLACEMENT_MAP.put(1073741824, NetworkSlimefunItems.NETWORK_QUANTUM_STORAGE_7);
+        QUANTUM_REPLACEMENT_MAP.put(Integer.MAX_VALUE, NetworkSlimefunItems.NETWORK_QUANTUM_STORAGE_8);
     }
 
     @Override
-    public boolean onCommand(
-        @NotNull CommandSender sender,
-        @NotNull Command command,
-        @NotNull String label,
-        @NotNull String @NotNull [] args) {
+    public boolean onCommand(@Nonnull CommandSender sender, @Nonnull Command command, @Nonnull String label, @Nonnull String[] args) {
         if (args.length == 0) {
-            help(sender, null);
-            return true;
-        }
-        switch (args[0]) {
-            case "fillquantum",
-                 "fixblueprint",
-                 "addstorageitem",
-                 "reducestorageitem",
-                 "setquantum",
-                 "setcontainerid" -> {
-                if (!(sender instanceof Player)) {
-                    sender.sendMessage(getErrorMessage(ErrorType.MUST_BE_PLAYER));
-                    return false;
-                }
-            }
-            case "help" -> {
-            }
+            return false;
         }
 
-        // Player or console
-        if (args[0].toLowerCase(Locale.ROOT).equals("help")) {
-            if (sender.isOp()) {
-                if (args.length >= 2) {
-                    help(sender, args[1]);
-                } else {
-                    help(sender, null);
-                }
-            } else {
-                sender.sendMessage(getErrorMessage(ErrorType.NO_PERMISSION));
-            }
+        if (args[0].equalsIgnoreCase("doctor")) {
+            runDoctor(sender);
             return true;
         }
 
-        // Player only
+        if (args[0].equalsIgnoreCase("reload")) {
+            reloadNetworks(sender);
+            return true;
+        }
+
         if (sender instanceof Player player) {
-            switch (args[0].toLowerCase(Locale.ROOT)) {
-                case "fillquantum" -> {
-                    if (!player.hasPermission("networks.admin")
-                        && !player.hasPermission("networks.commands.fillquantum")) {
-                        player.sendMessage(getErrorMessage(ErrorType.NO_PERMISSION));
-                        return true;
-                    }
-
-                    if (args.length == 1) {
-                        player.sendMessage(getErrorMessage(ErrorType.MISSING_REQUIRED_ARGUMENT, "amount"));
-                        return true;
-                    }
-
+            if (args[0].equalsIgnoreCase("inspect")) {
+                inspectNetwork(player);
+                return true;
+            }
+            if (args[0].equalsIgnoreCase("fillquantum")) {
+                if ((player.isOp() || player.hasPermission("networks.admin")) && args.length >= 2) {
                     try {
-                        long amount = Calculator.calculate(args[1]).longValue();
-                        if (amount < 0 || amount > NetworkQuantumStorage.MAX_AMOUNT) {
-                            player.sendMessage(getErrorMessage(ErrorType.INVALID_REQUIRED_ARGUMENT, "amount"));
-                            return true;
-                        }
-                        fillQuantum(player, amount);
-                    } catch (NumberFormatException e) {
-                        if ("full".equals(args[1])){
-                            fillQuantum(player, NetworkQuantumStorage.MAX_AMOUNT);
-                            return true;
-                        }
-                        player.sendMessage(getErrorMessage(ErrorType.INVALID_REQUIRED_ARGUMENT, "amount"));
-                        player.sendMessage(e.getMessage());
+                        int number = Integer.parseInt(args[1]);
+                        fillQuantum(player, number);
+                        return true;
+                    } catch (NumberFormatException exception) {
+                        return false;
                     }
+                }
+            }
 
+            if (args[0].equalsIgnoreCase("repair")) {
+                if (args.length > 1 && args[1].equalsIgnoreCase("chunk")) {
+                    repairChunk(player);
                     return true;
                 }
-
-                case "fixblueprint" -> {
-                    if (!player.hasPermission("networks.admin")
-                        && !player.hasPermission("networks.commands.fixblueprint")) {
-                        player.sendMessage(getErrorMessage(ErrorType.NO_PERMISSION));
-                        return true;
-                    }
-
-                    if (args.length == 1) {
-                        player.sendMessage(getErrorMessage(ErrorType.MISSING_REQUIRED_ARGUMENT, "keyInMeta"));
-                        return true;
-                    }
-
-                    String before = args[1];
-                    fixBlueprint(player, before);
-                    return true;
-                }
-
-                case "setquantum" -> {
-                    if (!player.hasPermission("networks.admin")
-                        && !player.hasPermission("networks.commands.setquantum")) {
-                        player.sendMessage(getErrorMessage(ErrorType.NO_PERMISSION));
-                        return true;
-                    }
-
-                    if (args.length == 1) {
-                        player.sendMessage(getErrorMessage(ErrorType.MISSING_REQUIRED_ARGUMENT, "amount"));
-                        return true;
-                    }
-
-                    try {
-                        long amount = Calculator.calculate(args[1]).longValue();
-                        if (amount < 0 || amount > NetworkQuantumStorage.MAX_AMOUNT) {
-                            throw new NumberFormatException("");
-                        }
-                        setQuantum(player, amount);
-                    } catch (NumberFormatException e) {
-                        if ("full".equals(args[1])) {
-                            setQuantum(player, NetworkQuantumStorage.MAX_AMOUNT);
-                            return true;
-                        }
-                        player.sendMessage(getErrorMessage(ErrorType.INVALID_REQUIRED_ARGUMENT, "amount"));
-                        player.sendMessage(e.getMessage());
-                    }
-
-                    return true;
-                }
-                case "addstorageitem" -> {
-                    if (!player.hasPermission("networks.admin")
-                        && !player.hasPermission("networks.commands.addstorageitem")) {
-                        player.sendMessage(getErrorMessage(ErrorType.NO_PERMISSION));
-                        return true;
-                    }
-
-                    if (args.length == 1) {
-                        player.sendMessage(getErrorMessage(ErrorType.MISSING_REQUIRED_ARGUMENT, "amount"));
-                        return true;
-                    }
-
-                    try {
-                        int amount = Calculator.calculate(args[1]).intValue();
-                        addStorageItem(player, amount);
-                    } catch (NumberFormatException e) {
-                        player.sendMessage(getErrorMessage(ErrorType.INVALID_REQUIRED_ARGUMENT, "amount"));
-                        player.sendMessage(e.getMessage());
-                    }
-
-                    return true;
-                }
-
-                case "reducestorageitem" -> {
-                    if (!player.hasPermission("networks.admin")
-                        && !player.hasPermission("networks.commands.reducestorageitem")) {
-                        player.sendMessage(getErrorMessage(ErrorType.NO_PERMISSION));
-                        return true;
-                    }
-
-                    if (args.length == 1) {
-                        player.sendMessage(getErrorMessage(ErrorType.MISSING_REQUIRED_ARGUMENT, "amount"));
-                        return true;
-                    }
-
-                    try {
-                        int amount = Calculator.calculate(args[1]).intValue();
-                        reduceStorageItem(player, amount);
-                    } catch (NumberFormatException e) {
-                        player.sendMessage(getErrorMessage(ErrorType.INVALID_REQUIRED_ARGUMENT, "amount"));
-                        player.sendMessage(e.getMessage());
-                    }
-
-                    return true;
-                }
-
-                case "setcontainerid" -> {
-                    if (!player.hasPermission("networks.admin")
-                        && !player.hasPermission("networks.commands.setcontainerid")) {
-                        player.sendMessage(getErrorMessage(ErrorType.NO_PERMISSION));
-                        return true;
-                    }
-
-                    if (args.length == 1) {
-                        player.sendMessage(getErrorMessage(ErrorType.MISSING_REQUIRED_ARGUMENT, "containerId"));
-                        return true;
-                    }
-
-                    try {
-                        int containerId = Calculator.calculate(args[1]).intValue();
-                        setContainerId(player, containerId);
-                    } catch (NumberFormatException e) {
-                        player.sendMessage(getErrorMessage(ErrorType.INVALID_REQUIRED_ARGUMENT, "containerId"));
-                        player.sendMessage(e.getMessage());
-                    }
-
-                    return true;
-                }
-
-                case "updateitem" -> {
-                    if (!player.hasPermission("networks.admin")
-                        && !player.hasPermission("networks.commands.updateitem")) {
-                        player.sendMessage(getErrorMessage(ErrorType.NO_PERMISSION));
-                        return true;
-                    }
-
-                    updateItem(player);
-                    return true;
-                }
-
-                case "getstorageitem" -> {
-                    if (!player.hasPermission("networks.admin")
-                        && !player.hasPermission("networks.commands.getstorageitem")) {
-                        player.sendMessage(getErrorMessage(ErrorType.NO_PERMISSION));
-                        return true;
-                    }
-
-                    if (args.length <= 2) {
-                        player.sendMessage(getErrorMessage(ErrorType.MISSING_REQUIRED_ARGUMENT, "slot"));
-                        return true;
-                    }
-
-                    try {
-                        int slot = Calculator.calculate(args[1]).intValue();
-                        getStorageItem(player, slot);
-                    } catch (NumberFormatException e) {
-                        player.sendMessage(getErrorMessage(ErrorType.INVALID_REQUIRED_ARGUMENT, "slot"));
-                        player.sendMessage(e.getMessage());
-                    }
-
-                    return true;
-                }
-
-                case "viewlog" -> {
-                    if (!player.hasPermission("networks.admin") && !player.hasPermission("networks.commands.viewlog")) {
-                        player.sendMessage(getErrorMessage(ErrorType.NO_PERMISSION));
-                        return true;
-                    }
-
-                    viewLog(player);
-                    return true;
-                }
-
-                case "map" -> {
-                    if (!player.hasPermission("networks.admin") && !player.hasPermission("networks.commands.map")) {
-                        player.sendMessage(getErrorMessage(ErrorType.NO_PERMISSION));
-                        return true;
-                    }
-
-                    if (args.length == 1) {
-                        player.sendMessage(getErrorMessage(ErrorType.MISSING_REQUIRED_ARGUMENT, "filePath"));
-                        return true;
-                    }
-
-                    String filePath = args[1];
-                    Pair<ItemStack, MapView> pair = MapUtil.getImageItem(filePath);
-                    if (pair != null) {
-                        ItemStack first = pair.getFirstValue();
-                        MapView second = pair.getSecondValue();
-                        if (second == null) {
-                            player.sendMessage(getErrorMessage(ErrorType.INVALID_REQUIRED_ARGUMENT, "filePath"));
-                            return true;
-                        }
-
-                        if (first != null) {
-                            InventoryUtil.addItem(player, first);
-                            player.sendMap(second);
-                        }
-                    }
-                }
-
-                case "cch" -> {
-                    if (!player.hasPermission("networks.admin") && !player.hasPermission("networks.commands.cch")) {
-                        player.sendMessage(getErrorMessage(ErrorType.NO_PERMISSION));
-                        return true;
-                    }
-
-                    if (args.length == 1) {
-                        player.sendMessage(getErrorMessage(ErrorType.MISSING_REQUIRED_ARGUMENT, "cchName"));
-                        return true;
-                    }
-
-                    final Block targetBlock = player.getTargetBlockExact(8, FluidCollisionMode.NEVER);
-                    if (targetBlock == null || targetBlock.getType() == Material.AIR) {
-                        player.sendMessage(Lang.getString("messages.commands.must-admin-debuggable"));
-                        return true;
-                    }
-
-                    final SlimefunItem slimefunItem = StorageCacheUtils.getSfItem(targetBlock.getLocation());
-                    if (slimefunItem == null) {
-                        player.sendMessage(Lang.getString("messages.commands.must-admin-debuggable"));
-                        return true;
-                    }
-
-                    if (!(slimefunItem instanceof AdminDebuggable debuggable)) {
-                        player.sendMessage(Lang.getString("messages.commands.must-admin-debuggable"));
-                        return true;
-                    }
-
-                    Location lookingAt = targetBlock.getLocation();
-                    String cchName = args[1];
-                    Map<Location, ?> map;
-                    switch (cchName) {
-                        case "l" -> {
-                            // list all
-                            player.sendMessage("l", "oah", "pah", "tmih", "tmoh", "caih", "caoh");
-                            return true;
-                        }
-                        case "oah" -> map = NetworkRoot.observingAccessHistory;
-                        case "pah" -> map = NetworkRoot.persistentAccessHistory;
-                        case "tmih" -> map = NetworkRoot.transportMissInputHistory;
-                        case "tmoh" -> map = NetworkRoot.transportMissOutputHistory;
-                        case "caih" -> map = NetworkRoot.controlledAccessInputHistory;
-                        case "caoh" -> map = NetworkRoot.controlledAccessOutputHistory;
-                        default -> {
-                            player.sendMessage(getErrorMessage(ErrorType.INVALID_REQUIRED_ARGUMENT, "cchName"));
-                            return true;
-                        }
-                    }
-
-                    Object value = map.get(lookingAt);
-                    if (value == null) {
-                        player.sendMessage("no cache yet.");
-                    }
-
-                    if (value instanceof Map<?, ?>) {
-                        player.sendMessage("Cache: " + cchName);
-                        @SuppressWarnings("unchecked") Map<Location, Integer> locations = (Map<Location, Integer>) value;
-                        Map<String, Integer> formatted = locations.entrySet().stream().map(e -> {
-                            SlimefunItem sf = StorageCacheUtils.getSfItem(e.getKey());
-                            if (sf == null) {
-                                return Map.entry(e.getKey().toString(), e.getValue());
-                            }
-                            return Map.entry(ChatColor.translateAlternateColorCodes('&', sf.getItemName()), e.getValue());
-                        }).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-                        for (Map.Entry<String, Integer> entry : formatted.entrySet()) {
-                            player.sendMessage(entry.getKey() + ": " + entry.getValue());
-                        }
-                    } else if (value instanceof Number n) {
-                        player.sendMessage("Cache: " + cchName);
-                        player.sendMessage("Valor: " + n.intValue());
-                    }
-                }
-
-                default -> help(player, null);
+                repairNetwork(player);
+                return true;
             }
         }
-        // We always return true, even if the command was not executed, so that the help message is not shown.
         return true;
     }
 
-    public void fillQuantum(@NotNull Player player, long amount) {
+    @Override
+    public List<String> onTabComplete(@Nonnull CommandSender sender, @Nonnull Command command,
+                                      @Nonnull String alias, @Nonnull String[] args) {
+        if (!sender.isOp() && !sender.hasPermission("networks.admin")) {
+            return List.of();
+        }
+        if (args.length == 1) {
+            final String prefix = args[0].toLowerCase(Locale.ROOT);
+            return SUBCOMMANDS.stream().filter(value -> value.startsWith(prefix)).toList();
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("repair")
+                && "chunk".startsWith(args[1].toLowerCase(Locale.ROOT))) {
+            return List.of("chunk");
+        }
+        return List.of();
+    }
+
+    /**
+     * Diagnostico de salud de las redes cargadas. No cambia nada.
+     *
+     * Cuenta los nodos que existen para Networks pero no para ninguna red -- sin NetworkNode, o
+     * apuntando a una raiz que su controlador ya sustituyo -- que es la causa de "lo tengo todo
+     * conectado y la maquina no trabaja". Da tambien el numero de redes activas y de nodos.
+     */
+    private void runDoctor(@Nonnull CommandSender sender) {
+        if (!sender.isOp() && !sender.hasPermission("networks.admin") && sender instanceof Player) {
+            sender.sendMessage(Theme.ERROR + "No tienes permiso.");
+            return;
+        }
+
+        final Map<org.bukkit.Location, io.github.sefiraat.networks.network.NetworkRoot> networks =
+            NetworkController.getNetworks();
+        int orphansLoaded = 0;
+        int orphansUnloaded = 0;
+        int stale = 0;
+        int conflicts = 0;
+        int overburdened = 0;
+        int total = 0;
+
+        for (NetworkRoot root : networks.values()) {
+            conflicts += root.getConflictingControllers().size();
+            if (root.isOverburdened()) {
+                overburdened++;
+            }
+        }
+
+        for (Map.Entry<org.bukkit.Location, io.github.sefiraat.networks.network.NodeDefinition> entry
+                : NetworkStorage.getAllNetworkObjects().entrySet()) {
+            total++;
+            final org.bukkit.Location location = entry.getKey();
+            final io.github.sefiraat.networks.network.NetworkNode node = entry.getValue().getNode();
+            if (node == null) {
+                /*
+                 * Separar los huerfanos por si su chunk esta cargado es la diferencia entre un
+                 * numero que sirve y uno que no.
+                 *
+                 * Un controlador solo entra en NETWORKS cuando tickea, y Slimefun solo tickea
+                 * chunks cargados. Asi que TODA base sin nadie cerca aporta huerfanos, y son
+                 * normales: en cuanto alguien se acerca, el controlador tickea y los adopta.
+                 * Contarlos juntos daba cifras enormes que no distinguian "no hay nadie ahi" de
+                 * "esto esta roto", que es justo lo que hay que saber.
+                 */
+                if (location.getWorld() != null
+                        && location.getWorld().isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) {
+                    orphansLoaded++;
+                } else {
+                    orphansUnloaded++;
+                }
+                continue;
+            }
+            final org.bukkit.Location controller = node.getRoot().getController();
+            if (controller == null || networks.get(controller) != node.getRoot()) {
+                stale++;
+            }
+        }
+
+        sender.sendMessage(Theme.MAIN + "===== Networks Doctor =====");
+        sender.sendMessage(Theme.PASSIVE + "Redes activas: " + Theme.SUCCESS + networks.size());
+        sender.sendMessage(Theme.PASSIVE + "Nodos registrados: " + Theme.SUCCESS + total);
+        sender.sendMessage(Theme.PASSIVE + "Huerfanos en chunk CARGADO: "
+                + (orphansLoaded > 0 ? Theme.ERROR : Theme.SUCCESS) + orphansLoaded
+                + Theme.PASSIVE + "  <- los que importan");
+        sender.sendMessage(Theme.PASSIVE + "Huerfanos en chunk descargado: "
+                + Theme.SUCCESS + orphansUnloaded
+                + Theme.PASSIVE + "  (normal: nadie cerca de esa base)");
+        sender.sendMessage(Theme.PASSIVE + "Nodos con raiz obsoleta: "
+                + (stale > 0 ? Theme.WARNING : Theme.SUCCESS) + stale);
+        sender.sendMessage(Theme.PASSIVE + "Controladores conectados entre si: "
+                + (conflicts > 0 ? Theme.ERROR : Theme.SUCCESS) + conflicts);
+        sender.sendMessage(Theme.PASSIVE + "Redes sobrecargadas: "
+                + (overburdened > 0 ? Theme.WARNING : Theme.SUCCESS) + overburdened);
+        if (conflicts > 0) {
+            sender.sendMessage(Theme.ERROR + "Separa los controladores: Networks los aisló y no eliminó ningún bloque.");
+        }
+        if (orphansLoaded > 0 || stale > 0) {
+            sender.sendMessage(Theme.WARNING + "Usa /networks reload para reconciliar todas las redes en caliente.");
+        } else if (conflicts == 0 && overburdened == 0) {
+            sender.sendMessage(Theme.SUCCESS + "Todas las redes estan sanas.");
+        }
+    }
+
+    /** Shows the topology of the controller currently targeted without changing runtime state. */
+    private void inspectNetwork(@Nonnull Player player) {
+        if (!player.isOp() && !player.hasPermission("networks.admin")) {
+            player.sendMessage(Theme.ERROR + "No tienes permiso.");
+            return;
+        }
+        final Block block = player.getTargetBlockExact(8);
+        if (block == null) {
+            player.sendMessage(Theme.ERROR + "Mira un Network Controller a menos de 8 bloques.");
+            return;
+        }
+        final NetworkRoot root = NetworkController.getNetworks().get(block.getLocation());
+        if (root == null) {
+            player.sendMessage(Theme.ERROR + "Ese bloque no es un controlador activo.");
+            return;
+        }
+        player.sendMessage(Theme.MAIN + "===== Network Inspect =====");
+        player.sendMessage(Theme.PASSIVE + "Nodos: " + Theme.SUCCESS + root.getNodeCount()
+                + Theme.PASSIVE + "/" + root.getMaxNodes());
+        player.sendMessage(Theme.PASSIVE + "Energía: " + Theme.SUCCESS + root.getRootPower());
+        player.sendMessage(Theme.PASSIVE + "Almacenamiento: " + Theme.SUCCESS
+                + (root.getCells().size() + root.getGreedyBlocks().size())
+                + Theme.PASSIVE + " | E/S: " + Theme.SUCCESS
+                + (root.getImporters().size() + root.getExporters().size()));
+        player.sendMessage(Theme.PASSIVE + "Grids: " + Theme.SUCCESS + root.getGrids().size()
+                + Theme.PASSIVE + " | Crafters: " + Theme.SUCCESS + root.getCrafters().size());
+        player.sendMessage(Theme.PASSIVE + "Conflictos: "
+                + (root.getConflictingControllers().isEmpty() ? Theme.SUCCESS : Theme.ERROR)
+                + root.getConflictingControllers().size()
+                + Theme.PASSIVE + " | Sobrecargada: "
+                + (root.isOverburdened() ? Theme.ERROR + "sí" : Theme.SUCCESS + "no"));
+    }
+
+    /**
+     * Reconcilia en caliente el estado de todas las redes cargadas, sin reiniciar el servidor.
+     *
+     * Devuelve al registro los nodos de los chunks cargados y marca sucias todas las redes para
+     * que cada controlador rehaga su grafo una vez y readopte lo que estuviera desligado. No
+     * recarga el jar ni toca datos persistentes: solo repara la topologia en memoria. Es el
+     * "aplicar el fix del net sin reinicio" -- sirve para reparar redes rotas al vuelo.
+     */
+    private void reloadNetworks(@Nonnull CommandSender sender) {
+        if (!sender.isOp() && !sender.hasPermission("networks.admin") && sender instanceof Player) {
+            sender.sendMessage(Theme.ERROR + "No tienes permiso.");
+            return;
+        }
+
+        final int indexed = io.github.sefiraat.networks.listeners.SyncListener.indexLoadedChunks();
+        int worlds = 0;
+        for (org.bukkit.World world : org.bukkit.Bukkit.getWorlds()) {
+            NetworkController.markNetworksDirtyInWorld(world);
+            worlds++;
+        }
+        sender.sendMessage(Theme.SUCCESS + "Reconciliacion en caliente lanzada: "
+                + indexed + " nodo(s) reindexado(s), " + worlds + " mundo(s) marcado(s).");
+        sender.sendMessage(Theme.PASSIVE + "Las redes se reconstruyen en los proximos ticks. "
+                + "Comprueba con /networks doctor.");
+    }
+
+    /**
+     * Restores only the in-memory topology of the controller a staff member is targeting.
+     * A non-controller or a vanilla block is reported and left untouched.
+     */
+    private void repairNetwork(@Nonnull Player player) {
+        if (!player.isOp() && !player.hasPermission("networks.admin")) {
+            player.sendMessage(Theme.ERROR + "You do not have permission to repair a network.");
+            return;
+        }
+
+        Block block = player.getTargetBlockExact(8);
+        if (block == null) {
+            player.sendMessage(Theme.ERROR + "Look directly at a Network Controller within 8 blocks.");
+            return;
+        }
+
+        SlimefunItem item = com.github.drakescraft_labs.slimefun4.legacy.api.BlockStorage.check(block);
+        if (item instanceof NetworkController controller) {
+            int nodes = controller.rebuildNetwork(block).getNodeCount();
+            player.sendMessage(Theme.SUCCESS + "Network topology rebuilt: " + nodes + " node(s).");
+        } else if (item instanceof NetworkObject) {
+            player.sendMessage(Theme.WARNING + "Look directly at this network's controller, not a child node.");
+        } else {
+            player.sendMessage(Theme.ERROR + "This block has no valid Networks identity. Nothing was changed.");
+        }
+    }
+
+    /** Repairs the current chunk's already persisted Networks blocks without rewriting Slimefun data. */
+    private void repairChunk(@Nonnull Player player) {
+        if (!player.isOp() && !player.hasPermission("networks.admin")) {
+            player.sendMessage(Theme.ERROR + "You do not have permission to repair a network.");
+            return;
+        }
+
+        NetworkStorage.RepairSummary summary = NetworkStorage.repairChunk(player.getLocation().getChunk());
+        player.sendMessage(Theme.SUCCESS + "Chunk repair completed: " + summary.discoveredNodes()
+                + " node(s), " + summary.recoveredNodes() + " restored, "
+                + summary.rebuiltControllers() + " controller(s) rebuilt.");
+        if (summary.invalidEntries() > 0) {
+            player.sendMessage(Theme.WARNING + "Detected " + summary.invalidEntries()
+                    + " invalid Slimefun record(s); they were not modified.");
+        }
+    }
+
+    public void fillQuantum(Player player, int amount) {
         final ItemStack itemStack = player.getInventory().getItemInMainHand();
-        if (itemStack.getType() == Material.AIR) {
-            player.sendMessage(Lang.getString("messages.commands.no-item-in-hand"));
+        if (itemStack == null || itemStack.getType() == Material.AIR) {
+            player.sendMessage(Theme.ERROR + "Item in hand must be a Quantum Storage.");
             return;
         }
 
         SlimefunItem slimefunItem = SlimefunItem.getByItem(itemStack);
 
         if (!(slimefunItem instanceof NetworkQuantumStorage)) {
-            player.sendMessage(Lang.getString("messages.commands.must-hand-quantum-storage"));
+            player.sendMessage(Theme.ERROR + "Item in hand must be a Quantum Storage.");
             return;
         }
 
         ItemMeta meta = itemStack.getItemMeta();
-        final QuantumCache quantumCache = Keys.getQuantumCache(meta);
+        final QuantumCache quantumCache = DataTypeMethods.getCustom(
+            meta,
+            Keys.QUANTUM_STORAGE_INSTANCE,
+            PersistentQuantumStorageType.TYPE
+        );
+
         if (quantumCache == null || quantumCache.getItemStack() == null) {
-            player.sendMessage(Lang.getString("messages.commands.no-set-item"));
+            player.sendMessage(Theme.ERROR + "This card has either not been set to an item yet or is a corrupted Quantum Storage.");
             return;
         }
 
-        quantumCache.setAmount(Math.min(amount, NetworkQuantumStorage.MAX_AMOUNT));
+        quantumCache.setAmount(amount);
         DataTypeMethods.setCustom(meta, Keys.QUANTUM_STORAGE_INSTANCE, PersistentQuantumStorageType.TYPE, quantumCache);
         quantumCache.updateMetaLore(meta);
         itemStack.setItemMeta(meta);
-        player.sendMessage(Lang.getString("messages.commands.updated-quantum-storage"));
-    }
-
-    // change "networks-changed:recipe" -> "networks:recipe"
-    public void fixBlueprint(@NotNull Player player, @NotNull String before) {
-        ItemStack blueprint = player.getInventory().getItemInMainHand();
-        if (blueprint.getType() == Material.AIR) {
-            player.sendMessage(Lang.getString("messages.commands.must-hand-blueprint"));
-            return;
-        }
-
-        final SlimefunItem item = SlimefunItem.getByItem(blueprint);
-
-        if (!(item instanceof Blueprint)) {
-            player.sendMessage(Lang.getString("messages.commands.must-hand-blueprint"));
-            return;
-        }
-
-        ItemMeta blueprintMeta = blueprint.getItemMeta();
-
-        BlueprintInstance instance = Keys.getBlueprintInstance(blueprintMeta);
-
-        if (instance == null) {
-            player.sendMessage(Lang.getString("messages.commands.invalid-blueprint"));
-            return;
-        }
-
-        ItemStack fix = NetworksSlimefunItemStacks.CRAFTING_BLUEPRINT.clone();
-        ItemStack item2 = instance.getItemStack();
-        if (item2 != null) {
-            Blueprint.setBlueprint(fix, instance.getRecipeItems(), item2);
-        }
-
-        blueprint.setItemMeta(fix.getItemMeta());
-
-        player.sendMessage(Lang.getString("messages.commands.fixed-blueprint"));
-    }
-
-    @Override
-    public @Nullable List<String> onTabComplete(
-        @NotNull CommandSender sender,
-        @NotNull Command command,
-        @NotNull String label,
-        @NotNull String @NotNull [] args) {
-        List<String> raw = onTabCompleteRaw(sender, args);
-        return StringUtil.copyPartialMatches(args[args.length - 1], raw, new ArrayList<>());
-    }
-
-    public @NotNull List<String> onTabCompleteRaw(@NotNull CommandSender sender, @NotNull String @NotNull [] args) {
-        switch (args.length) {
-            case 1 -> {
-                return List.of(
-                    "addStorageItem",
-                    "fillQuantum",
-                    "fixBlueprint",
-                    "getStorageItem",
-                    "help",
-                    "reduceStorageItem",
-                    "setContainerId",
-                    "setQuantum",
-                    "updateItem",
-                    "viewLog",
-                    "worldedit");
-            }
-            case 2 -> {
-                return switch (args[0].toLowerCase(Locale.ROOT)) {
-                    // case "help", "updateitem" -> List.of();
-                    case "getstorageitem" -> List.of("<slot>");
-                    case "fillquantum", "addstorageitem", "reducestorageitem", "setquantum" -> List.of("<amount>");
-                    case "fixblueprint" -> List.of("<keyInMeta>");
-                    case "setcontainerid" -> List.of("<containerId>");
-                    case "worldedit" -> List.of(
-                        "pos1",
-                        "pos2",
-                        "paste",
-                        "clear",
-                        "clone",
-                        "blockmenu",
-                        "blockinfo",
-                        "clearpos",
-                        "showareaoutline");
-                    default -> List.of();
-                };
-            }
-            case 3 -> {
-                if (args[0].equalsIgnoreCase("worldedit")) {
-                    return switch (args[1]) {
-                        // case "pos1", "pos2" -> List.of();
-                        case "paste" -> Slimefun.getRegistry().getAllSlimefunItems().stream()
-                            .filter(sfItem -> sfItem.getItem().getType().isBlock())
-                            .map(SlimefunItem::getId)
-                            .toList();
-                        case "blockinfo" -> List.of("add", "remove", "set");
-                        case "blockmenu" -> List.of("setSlot");
-                        case "clear" -> List.of("true", "false");
-                        default -> List.of();
-                    };
-                }
-            }
-            case 4 -> {
-                if (args[0].equalsIgnoreCase("worldedit")) {
-                    return switch (args[1].toLowerCase(Locale.ROOT)) {
-                        case "paste" -> List.of("override", "keep");
-                        case "blockmenu" -> "setslot".equals(args[2].toLowerCase(Locale.ROOT))
-                            ? List.of(
-                            "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14",
-                            "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27",
-                            "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38", "39", "40",
-                            "41", "42", "43", "44", "45", "46", "47", "48", "49", "50", "51", "52", "53")
-                            : List.of();
-                        case "clear" -> List.of("true", "false");
-                        default -> List.of();
-                    };
-                }
-            }
-            case 5 -> {
-                if (args[0].equalsIgnoreCase("worldedit")) {
-                    if (args[1].equalsIgnoreCase("paste")) {
-                        return List.of("true", "false");
-                    }
-                }
-            }
-        }
-
-        return new ArrayList<>();
-    }
-
-    public @NotNull String getErrorMessage(@NotNull ErrorType errorType) {
-        return getErrorMessage(errorType, null);
-    }
-
-    public @NotNull String getErrorMessage(@NotNull ErrorType errorType, String argument) {
-        return switch (errorType) {
-            case NO_PERMISSION -> Lang.getString("messages.commands.no-permission");
-            case NO_ITEM_IN_HAND -> Lang.getString("messages.commands.no-item-in-hand");
-            case MISSING_REQUIRED_ARGUMENT -> String.format(
-                Lang.getString("messages.commands.missing-required-argument"), argument);
-            case INVALID_REQUIRED_ARGUMENT -> String.format(
-                Lang.getString("messages.commands.invalid-required-argument"), argument);
-            case MUST_BE_PLAYER -> Lang.getString("messages.commands.must-be-player");
-            default -> Lang.getString("messages.commands.unknown-error");
-        };
+        player.sendMessage(Theme.SUCCESS + "Item updated");
     }
 }

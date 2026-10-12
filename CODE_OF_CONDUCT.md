@@ -106,7 +106,7 @@ Violating these terms may lead to a permanent ban.
 ### 4. Permanent Ban
 
 **Community Impact**: Demonstrating a pattern of violation of community
-standards, including sustained inappropriate behavior, harassment of an
+standards, including sustained inappropriate behavior,  harassment of an
 individual, or aggression toward or disparagement of classes of individuals.
 
 **Consequence**: A permanent ban from any sort of public interaction within
@@ -126,3 +126,10 @@ enforcement ladder](https://github.com/mozilla/diversity).
 For answers to common questions about this code of conduct, see the FAQ at
 https://www.contributor-covenant.org/faq. Translations are available at
 https://www.contributor-covenant.org/translations.
+
+<!-- DRAKES-STATUS:BEGIN -->
+> Estado de sincronizacion: **2026-04-24**.
+> Baseline tecnico vigente: **Paper 1.21.1 + Java 21**.
+> CI principal en `main`: **Gates 1-5 en verde**.
+> Nota: el monorepo completo sigue en migracion incremental por lotes.
+<!-- DRAKES-STATUS:END -->

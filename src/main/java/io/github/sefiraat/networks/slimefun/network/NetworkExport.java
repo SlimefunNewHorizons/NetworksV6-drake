@@ -1,56 +1,60 @@
 package io.github.sefiraat.networks.slimefun.network;
 
-import com.balugaq.netex.api.enums.FeedbackType;
-import com.balugaq.netex.api.helpers.Icon;
-import com.balugaq.netex.utils.BlockMenuUtil;
-import com.xzavier0722.mc.plugin.slimefun4.storage.controller.SlimefunBlockData;
-import com.xzavier0722.mc.plugin.slimefun4.storage.util.StorageCacheUtils;
 import io.github.sefiraat.networks.NetworkStorage;
 import io.github.sefiraat.networks.network.NodeDefinition;
 import io.github.sefiraat.networks.network.NodeType;
 import io.github.sefiraat.networks.network.stackcaches.ItemRequest;
 import io.github.sefiraat.networks.slimefun.NetworkSlimefunItems;
-import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
-import io.github.thebusybiscuit.slimefun4.api.items.ItemSetting;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
-import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
-import io.github.thebusybiscuit.slimefun4.api.items.settings.IntRangeSetting;
-import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
-import io.github.thebusybiscuit.slimefun4.core.handlers.BlockBreakHandler;
-import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
-import io.github.thebusybiscuit.slimefun4.libraries.dough.protection.Interaction;
-import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
-import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
-import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
-import me.mrCookieSlime.Slimefun.api.item_transport.ItemTransportFlow;
+import io.github.sefiraat.networks.utils.ItemCreator;
+import io.github.sefiraat.networks.utils.NetworkTransportUtils;
+import io.github.sefiraat.networks.utils.Theme;
+import com.github.drakescraft_labs.slimefun4.api.items.ItemGroup;
+import com.github.drakescraft_labs.slimefun4.api.items.ItemSetting;
+import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItem;
+import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItemStack;
+import com.github.drakescraft_labs.slimefun4.api.items.settings.IntRangeSetting;
+import com.github.drakescraft_labs.slimefun4.api.recipes.RecipeType;
+import com.github.drakescraft_labs.slimefun4.core.handlers.BlockBreakHandler;
+import com.github.drakescraft_labs.slimefun4.implementation.Slimefun;
+import com.github.drakescraft_labs.slimefun4.libraries.dough.items.CustomItemStack;
+import com.github.drakescraft_labs.slimefun4.libraries.dough.protection.Interaction;
+import me.mrCookieSlime.CSCoreLibPlugin.Configuration.Config;
+import com.github.drakescraft_labs.slimefun4.legacy.Objects.handlers.BlockTicker;
+import com.github.drakescraft_labs.slimefun4.legacy.api.BlockStorage;
+import com.github.drakescraft_labs.slimefun4.legacy.api.inventory.BlockMenu;
+import com.github.drakescraft_labs.slimefun4.legacy.api.inventory.BlockMenuPreset;
+import com.github.drakescraft_labs.slimefun4.legacy.api.item_transport.ItemTransportFlow;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.inventory.ItemStack;
-import org.jetbrains.annotations.NotNull;
 
+import javax.annotation.Nonnull;
 import java.util.List;
 
 public class NetworkExport extends NetworkObject {
 
-    private static final int[] BACKGROUND_SLOTS = {
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 13, 17, 18, 22, 26, 27, 31, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44
-    };
+    private static final int[] BACKGROUND_SLOTS = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 13, 17, 18, 22, 26, 27, 31, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44};
     private static final int TEST_ITEM_SLOT = 20;
     private static final int[] TEST_ITEM_BACKDROP = {10, 11, 12, 19, 21, 28, 29, 30};
     private static final int OUTPUT_ITEM_SLOT = 24;
     private static final int[] OUTPUT_ITEM_BACKDROP = {14, 15, 16, 23, 25, 32, 33, 34};
 
-    private final @NotNull ItemSetting<Integer> tickRate;
+    private static final ItemStack TEST_BACKDROP_STACK = ItemCreator.create(
+        Material.GREEN_STAINED_GLASS_PANE,
+        Theme.SUCCESS + "Export Item Matching"
+    );
 
-    public NetworkExport(
-        @NotNull ItemGroup itemGroup,
-        @NotNull SlimefunItemStack item,
-        @NotNull RecipeType recipeType,
-        ItemStack[] recipe,
-        ItemStack output) {
-        super(itemGroup, item, recipeType, recipe, output, NodeType.EXPORT);
+    private static final ItemStack OUTPUT_BACKDROP_STACK = ItemCreator.create(
+        Material.ORANGE_STAINED_GLASS_PANE,
+        Theme.SUCCESS + "Output Slot"
+    );
+
+    private final ItemSetting<Integer> tickRate;
+
+    public NetworkExport(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
+        super(itemGroup, item, recipeType, recipe, NodeType.EXPORT);
         this.tickRate = new IntRangeSetting(this, "tick_rate", 1, 1, 10);
         addItemSetting(this.tickRate);
 
@@ -64,18 +68,17 @@ public class NetworkExport extends NetworkObject {
 
                 @Override
                 public boolean isSynchronized() {
-                    return false;
+                    return true;
                 }
 
                 @Override
-                public void tick(@NotNull Block block, SlimefunItem item, @NotNull SlimefunBlockData data) {
+                public void tick(Block block, SlimefunItem item, Config data) {
                     if (tick <= 1) {
-                        final BlockMenu blockMenu = data.getBlockMenu();
-                        if (blockMenu == null) {
-                            return;
-                        }
+                        final BlockMenu blockMenu = BlockStorage.getInventory(block);
                         addToRegistry(block);
-                        tryFetchItem(blockMenu);
+                        if (blockMenu != null) {
+                            tryFetchItem(blockMenu);
+                        }
                     }
                 }
 
@@ -86,43 +89,57 @@ public class NetworkExport extends NetworkObject {
             },
             new BlockBreakHandler(true, true) {
                 @Override
-                public void onPlayerBreak(
-                    @NotNull BlockBreakEvent e, @NotNull ItemStack item, @NotNull List<ItemStack> drops) {
-                    BlockMenu blockMenu =
-                        StorageCacheUtils.getMenu(e.getBlock().getLocation());
-                    if (blockMenu == null) {
-                        return;
+                public void onPlayerBreak(BlockBreakEvent e, ItemStack item, List<ItemStack> drops) {
+                    BlockMenu blockMenu = BlockStorage.getInventory(e.getBlock());
+                    if (blockMenu != null) {
+                        blockMenu.dropItems(blockMenu.getLocation(), TEST_ITEM_SLOT);
+                        blockMenu.dropItems(blockMenu.getLocation(), OUTPUT_ITEM_SLOT);
                     }
-                    blockMenu.dropItems(blockMenu.getLocation(), TEST_ITEM_SLOT);
-                    blockMenu.dropItems(blockMenu.getLocation(), OUTPUT_ITEM_SLOT);
                 }
-            });
+            }
+        );
     }
 
-    private void tryFetchItem(@NotNull BlockMenu blockMenu) {
-        final NodeDefinition definition = NetworkStorage.getNode(blockMenu.getLocation());
+    private void tryFetchItem(@Nonnull BlockMenu blockMenu) {
+        final NodeDefinition definition = NetworkStorage.getAllNetworkObjects().get(blockMenu.getLocation());
 
-        if (definition.getNode() == null) {
-            sendFeedback(blockMenu.getLocation(), FeedbackType.NO_NETWORK_FOUND);
+        if (definition == null || definition.getNode() == null) {
             return;
         }
 
-        ItemStack testItem = blockMenu.getItemInSlot(TEST_ITEM_SLOT);
-        ItemStack itemInOutput = blockMenu.getItemInSlot(OUTPUT_ITEM_SLOT);
-
-        if (testItem == null || (itemInOutput != null && itemInOutput.getType() != Material.AIR)) {
-            sendFeedback(blockMenu.getLocation(), FeedbackType.NO_TEMPLATE_FOUND);
+        final ItemStack testItem = blockMenu.getItemInSlot(TEST_ITEM_SLOT);
+        if (testItem == null || testItem.getType() == Material.AIR) {
             return;
         }
 
-        ItemStack clone = testItem.clone();
+        final ItemStack itemInOutput = blockMenu.getItemInSlot(OUTPUT_ITEM_SLOT);
 
-        ItemRequest itemRequest = new ItemRequest(clone, clone.getMaxStackSize());
-        ItemStack retrieved = definition.getNode().getRoot().getItemStack0(blockMenu.getLocation(), itemRequest);
+        // Skip if output is completely full (full stack or incompatible item)
+        if (itemInOutput != null && itemInOutput.getType() != Material.AIR) {
+            if (itemInOutput.getAmount() >= itemInOutput.getMaxStackSize()) {
+                return;
+            }
+            // Has a partial stack — only continue if it's the same item type
+            if (!io.github.sefiraat.networks.utils.StackUtils.itemsMatch(testItem, itemInOutput)) {
+                return;
+            }
+        }
+
+        final int spaceInOutput = itemInOutput == null || itemInOutput.getType() == Material.AIR
+            ? testItem.getMaxStackSize()
+            : testItem.getMaxStackSize() - itemInOutput.getAmount();
+
+        if (spaceInOutput <= 0) {
+            return;
+        }
+
+        final ItemStack clone = testItem.clone();
+        final ItemRequest itemRequest = new ItemRequest(clone, spaceInOutput);
+        final ItemStack retrieved = definition.getNode().getRoot().getItemStack0(blockMenu.getLocation(), itemRequest);
         if (retrieved != null) {
-            BlockMenuUtil.pushItem(blockMenu, retrieved, OUTPUT_ITEM_SLOT);
+            NetworkTransportUtils.pushIntoMenuOrReturn(definition.getNode().getRoot(), blockMenu.getLocation(), blockMenu, retrieved, OUTPUT_ITEM_SLOT);
+            blockMenu.markDirty();
         }
-        sendFeedback(blockMenu.getLocation(), FeedbackType.WORKING);
     }
 
     @Override
@@ -132,16 +149,14 @@ public class NetworkExport extends NetworkObject {
             @Override
             public void init() {
                 drawBackground(BACKGROUND_SLOTS);
-                drawBackground(Icon.EXPORT_TEMPLATE_BACKGROUND_STACK, TEST_ITEM_BACKDROP);
-                drawBackground(Icon.EXPORT_OUTPUT_BACKGROUND_STACK, OUTPUT_ITEM_BACKDROP);
+                drawBackground(TEST_BACKDROP_STACK, TEST_ITEM_BACKDROP);
+                drawBackground(OUTPUT_BACKDROP_STACK, OUTPUT_ITEM_BACKDROP);
             }
 
             @Override
-            public boolean canOpen(@NotNull Block block, @NotNull Player player) {
-                return player.hasPermission("slimefun.inventory.bypass")
-                    || (NetworkSlimefunItems.NETWORK_EXPORT.canUse(player, false)
-                    && Slimefun.getProtectionManager()
-                    .hasPermission(player, block.getLocation(), Interaction.INTERACT_BLOCK));
+            public boolean canOpen(@Nonnull Block block, @Nonnull Player player) {
+                return NetworkSlimefunItems.NETWORK_GRID.canUse(player, false)
+                    && Slimefun.getProtectionManager().hasPermission(player, block.getLocation(), Interaction.INTERACT_BLOCK);
             }
 
             @Override
