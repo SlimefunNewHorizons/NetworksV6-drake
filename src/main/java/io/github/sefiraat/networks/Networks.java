@@ -65,6 +65,9 @@ public class Networks extends JavaPlugin implements SlimefunAddon {
 
         this.supportedPluginManager = new SupportedPluginManager();
         setupSlimefun();
+        // Puente con MultiverseNets (Chagui): permite que la red de Slimefun lea/escriba el
+        // almacenamiento de una red de Chagui. Inerte si MultiverseNets no esta instalado.
+        io.github.sefiraat.networks.compat.MultiverseNetsBridge.init(getLogger());
 
         this.listenerManager = new ListenerManager();
         final NetworksMain networksCommand = new NetworksMain();
