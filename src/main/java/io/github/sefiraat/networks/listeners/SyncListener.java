@@ -5,8 +5,8 @@ import io.github.sefiraat.networks.network.NodeDefinition;
 import io.github.sefiraat.networks.slimefun.network.NetworkObject;
 import io.github.sefiraat.networks.utils.NetworkIntegrity;
 import io.github.sefiraat.networks.utils.NetworkUtils;
-import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItem;
-import com.github.drakescraft_labs.slimefun4.legacy.api.BlockStorage;
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
+import me.mrCookieSlime.Slimefun.api.BlockStorage;
 import org.bukkit.Location;
 import org.bukkit.block.BlockState;
 import org.bukkit.event.EventHandler;
@@ -146,9 +146,9 @@ public class SyncListener implements Listener {
      * nada, de modo que una recarga normal no provoca reconstrucciones.
      */
     public static boolean chunkHasDetachedNodes(@Nonnull org.bukkit.Chunk chunk) {
-        for (Location location : com.github.drakescraft_labs.slimefun4.legacy.api.BlockStorage.getLocations(chunk)) {
-            final com.github.drakescraft_labs.slimefun4.api.items.SlimefunItem item =
-                com.github.drakescraft_labs.slimefun4.legacy.api.BlockStorage.check(location);
+        for (Location location : me.mrCookieSlime.Slimefun.api.BlockStorage.getLocations(chunk)) {
+            final io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem item =
+                me.mrCookieSlime.Slimefun.api.BlockStorage.check(location);
 
             if (!(item instanceof io.github.sefiraat.networks.slimefun.network.NetworkObject)) {
                 continue;
@@ -183,7 +183,7 @@ public class SyncListener implements Listener {
         // blocks already scheduled and therefore cannot repair a cold-loaded network.
         // Copy the locations because clearing a ghost updates Slimefun's backing index.
         for (Location location : new java.util.ArrayList<>(BlockStorage.getLocations(chunk))) {
-            final com.github.drakescraft_labs.slimefun4.api.items.SlimefunItem item =
+            final io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem item =
                 BlockStorage.check(location);
 
             if (item instanceof NetworkObject

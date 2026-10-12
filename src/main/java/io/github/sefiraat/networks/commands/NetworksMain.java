@@ -11,7 +11,7 @@ import io.github.sefiraat.networks.utils.Keys;
 import io.github.sefiraat.networks.utils.Theme;
 import io.github.sefiraat.networks.utils.datatypes.DataTypeMethods;
 import io.github.sefiraat.networks.utils.datatypes.PersistentQuantumStorageType;
-import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItem;
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -266,7 +266,7 @@ public class NetworksMain implements CommandExecutor, TabCompleter {
             return;
         }
 
-        SlimefunItem item = com.github.drakescraft_labs.slimefun4.legacy.api.BlockStorage.check(block);
+        SlimefunItem item = me.mrCookieSlime.Slimefun.api.BlockStorage.check(block);
         if (item instanceof NetworkController controller) {
             int nodes = controller.rebuildNetwork(block).getNodeCount();
             player.sendMessage(Theme.SUCCESS + "Network topology rebuilt: " + nodes + " node(s).");

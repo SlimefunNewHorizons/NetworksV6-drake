@@ -2,7 +2,7 @@ package io.github.sefiraat.networks.utils.datatypes;
 
 import io.github.sefiraat.networks.BukkitTestSupport;
 import io.github.sefiraat.networks.utils.ItemStackNormalizer;
-import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItemStack;
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;

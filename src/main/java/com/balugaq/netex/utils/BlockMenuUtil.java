@@ -2,7 +2,7 @@ package com.balugaq.netex.utils;
 
 import io.github.sefiraat.networks.utils.StackUtils;
 import lombok.experimental.UtilityClass;
-import com.github.drakescraft_labs.slimefun4.legacy.api.inventory.BlockMenu;
+import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;

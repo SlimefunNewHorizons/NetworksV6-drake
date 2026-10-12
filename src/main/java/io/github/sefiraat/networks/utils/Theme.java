@@ -1,6 +1,6 @@
 package io.github.sefiraat.networks.utils;
 
-import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItemStack;
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import lombok.Getter;
 import net.md_5.bungee.api.ChatColor;
 import org.bukkit.Color;

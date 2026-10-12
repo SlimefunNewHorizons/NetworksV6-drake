@@ -1,6 +1,6 @@
 package io.github.sefiraat.networks;
 
-import com.github.drakescraft_labs.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import org.mockbukkit.mockbukkit.MockBukkit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;

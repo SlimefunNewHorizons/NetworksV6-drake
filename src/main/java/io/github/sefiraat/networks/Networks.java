@@ -1,13 +1,12 @@
 package io.github.sefiraat.networks;
 
-import com.github.drakescraft_labs.slimefun4.api.SlimefunAddon;
-import com.github.drakescraft_labs.slimefun4.api.items.SlimefunItem;
-import com.github.drakescraft_labs.slimefun4.legacy.api.BlockStorage;
-import com.github.drakescraft_labs.slimefun4.legacy.api.inventory.BlockMenu;
-import com.github.drakescraft_labs.slimefun4.legacy.api.inventory.BlockMenuPreset;
+import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
+import me.mrCookieSlime.Slimefun.api.BlockStorage;
+import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
+import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
 import io.github.sefiraat.networks.commands.NetworksMain;
 import io.github.sefiraat.networks.integrations.HudCallbacks;
-import io.github.sefiraat.networks.integrations.NetheoPlants;
 import io.github.sefiraat.networks.listeners.SyncListener;
 import io.github.sefiraat.networks.managers.ListenerManager;
 import io.github.sefiraat.networks.managers.SupportedPluginManager;
@@ -17,7 +16,7 @@ import io.github.sefiraat.networks.slimefun.NetworkSlimefunItems;
 import io.github.sefiraat.networks.slimefun.network.NetworkController;
 import io.github.sefiraat.networks.slimefun.network.NetworkQuantumStorage;
 import io.github.sefiraat.networks.network.NetworkRoot;
-import com.github.drakescraft_labs.slimefun4.implementation.Slimefun;
+import io.github.thebusybiscuit.slimefun4.implementation.Slimefun;
 import io.github.sefiraat.networks.utils.NetworkUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -227,9 +226,11 @@ public class Networks extends JavaPlugin implements SlimefunAddon {
 
         if (supportedPluginManager.isNetheopoiesis()) {
             try {
-                NetheoPlants.setup();
-            } catch (NoClassDefFoundError e) {
-                getLogger().severe("Netheopoiesis must be updated to meet Networks' requirements.");
+                Class.forName("io.github.sefiraat.networks.integrations.NetheoPlants")
+                    .getMethod("setup")
+                    .invoke(null);
+            } catch (ReflectiveOperationException | LinkageError e) {
+                getLogger().warning("Netheopoiesis integration is disabled until its universal 26.x API is available.");
             }
         }
         if (supportedPluginManager.isSlimeHud()) {

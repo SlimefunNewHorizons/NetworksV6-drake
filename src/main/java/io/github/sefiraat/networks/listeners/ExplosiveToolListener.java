@@ -3,7 +3,7 @@ package io.github.sefiraat.networks.listeners;
 import io.github.sefiraat.networks.NetworkStorage;
 import io.github.sefiraat.networks.utils.NetworkIntegrity;
 import io.github.sefiraat.networks.utils.NetworkUtils;
-import com.github.drakescraft_labs.slimefun4.api.events.ExplosiveToolBreakBlocksEvent;
+import io.github.thebusybiscuit.slimefun4.api.events.ExplosiveToolBreakBlocksEvent;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.event.EventHandler;
