@@ -50,7 +50,7 @@ public class NetworkVacuum extends NetworkObject {
 
     private final ItemSetting<Integer> tickRate;
     private final ItemSetting<Integer> vacuumRange;
-    private final Map<Location, Integer> emptyScanCooldowns = new ConcurrentHashMap<>();
+    private final Map<Block, Integer> emptyScanCooldowns = new ConcurrentHashMap<>();
 
     public NetworkVacuum(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
         super(itemGroup, item, recipeType, recipe, NodeType.VACUUM);
@@ -80,8 +80,8 @@ public class NetworkVacuum extends NetworkObject {
                         addToRegistry(block);
                         if (blockMenu != null) {
                             tryAddItem(blockMenu);
-                            if (isScanDue(block.getLocation())) {
-                                findItem(blockMenu);
+                            if (isScanDue(block)) {
+                                findItem(block, blockMenu);
                             }
                         }
                     }
@@ -95,7 +95,7 @@ public class NetworkVacuum extends NetworkObject {
         );
     }
 
-    private void findItem(@Nonnull BlockMenu blockMenu) {
+    private void findItem(@Nonnull Block block, @Nonnull BlockMenu blockMenu) {
         for (int inputSlot : INPUT_SLOTS) {
             final ItemStack inSlot = blockMenu.getItemInSlot(inputSlot);
             if (inSlot == null || inSlot.getType().isAir()) {
@@ -105,7 +105,7 @@ public class NetworkVacuum extends NetworkObject {
                     .getNearbyEntities(location, range, range, range, Item.class::isInstance);
                 Optional<Entity> optionalEntity = items.stream().findFirst();
                 if (optionalEntity.isEmpty() || !(optionalEntity.get() instanceof Item item)) {
-                    deferEmptyScan(blockMenu.getLocation());
+                    deferEmptyScan(block);
                     return;
                 }
                 if (item.isValid() && !item.isDead() && item.getPickupDelay() <= 0 && !SlimefunUtils.hasNoPickupFlag(item)) {
@@ -115,26 +115,26 @@ public class NetworkVacuum extends NetworkObject {
                     ParticleUtils.displayParticleRandomly(item, 1, 5, new Particle.DustOptions(Color.BLUE, 1));
                     item.remove();
                 } else {
-                    deferEmptyScan(blockMenu.getLocation());
+                    deferEmptyScan(block);
                 }
                 return;
             }
         }
     }
 
-    private boolean isScanDue(@Nonnull Location location) {
-        return emptyScanCooldowns.compute(location, (ignored, remaining) ->
+    private boolean isScanDue(@Nonnull Block block) {
+        return emptyScanCooldowns.compute(block, (ignored, remaining) ->
             remaining == null || remaining <= 1 ? null : remaining - 1
         ) == null;
     }
 
-    private void deferEmptyScan(@Nonnull Location location) {
-        emptyScanCooldowns.put(location, EMPTY_SCAN_DELAY_TICKS);
+    private void deferEmptyScan(@Nonnull Block block) {
+        emptyScanCooldowns.put(block, EMPTY_SCAN_DELAY_TICKS);
     }
 
     @Override
     protected void clearCachedState(@Nonnull Location location) {
-        emptyScanCooldowns.remove(location);
+        emptyScanCooldowns.remove(location.getBlock());
     }
 
     private void tryAddItem(@Nonnull BlockMenu blockMenu) {
