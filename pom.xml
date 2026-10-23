@@ -91,6 +91,13 @@
                         <filter>
                             <artifact>*:*</artifact>
                             <excludes>
+                                <exclude>dev/drake/sefilib/slimefun/**</exclude>
+                                <exclude>dev/drake/sefilib/entity/**</exclude>
+                                <exclude>dev/drake/sefilib/protections/**</exclude>
+                                <exclude>dev/drake/sefilib/itemstacks/**</exclude>
+                                <exclude>dev/drake/sefilib/recipes/**</exclude>
+                                <exclude>dev/drake/sefilib/string/**</exclude>
+                                <exclude>dev/drake/sefilib/version/**</exclude>
                                 <exclude>dev/drake/dough/protection/**</exclude>
                                 <exclude>META-INF/MANIFEST.MF</exclude>
                                 <exclude>META-INF/*.SF</exclude>
