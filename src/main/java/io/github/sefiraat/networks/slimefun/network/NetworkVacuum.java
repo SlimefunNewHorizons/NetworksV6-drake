@@ -1,6 +1,6 @@
 package io.github.sefiraat.networks.slimefun.network;
 
-import dev.drake.sefilib.misc.ParticleUtils;
+import dev.sefiraat.sefilib.misc.ParticleUtils;
 import io.github.sefiraat.networks.NetworkStorage;
 import io.github.sefiraat.networks.network.NodeDefinition;
 import io.github.sefiraat.networks.utils.NetworkTransportUtils;

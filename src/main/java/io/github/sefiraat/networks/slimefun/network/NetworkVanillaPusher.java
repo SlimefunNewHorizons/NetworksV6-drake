@@ -92,6 +92,11 @@ public class NetworkVanillaPusher extends NetworkDirectional {
 
         BlockState state = BlockStateRefreshListener.getFreshState(targetBlock);
         if (!(state instanceof InventoryHolder holder)) {
+            // Puente MultiverseNets: si el target es una red de Chagui, empujar el input a su storage.
+            if (io.github.sefiraat.networks.compat.MultiverseNetsBridge.isNetworkBlock(targetBlock)) {
+                pushToMultiverseNets(blockMenu, targetBlock);
+                return true;
+            }
             return false;
         }
         Inventory inv = holder.getInventory();
@@ -227,6 +232,23 @@ public class NetworkVanillaPusher extends NetworkDirectional {
     @Override
     public int getDownSlot() {
         return DOWN_SLOT;
+    }
+
+    // Puente MultiverseNets: empuja el item del slot de entrada al storage virtual de una red de Chagui.
+    private void pushToMultiverseNets(@Nonnull BlockMenu blockMenu, @Nonnull Block targetBlock) {
+        final ItemStack stack = blockMenu.getItemInSlot(INPUT_SLOT);
+        if (stack == null || stack.getType() == Material.AIR) {
+            return;
+        }
+        final int before = stack.getAmount();
+        final int leftover = io.github.sefiraat.networks.compat.MultiverseNetsBridge.insert(targetBlock, stack.clone());
+        if (before - leftover > 0) {
+            if (leftover <= 0) {
+                blockMenu.replaceExistingItem(INPUT_SLOT, null);
+            } else {
+                stack.setAmount(leftover);
+            }
+        }
     }
 
     @Override

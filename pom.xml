@@ -28,9 +28,9 @@
         <paper.version>26.2.build.133-stable</paper.version>
         <slimefun.drake.version>11.0-Universal-26.x-SNAPSHOT</slimefun.drake.version>
         <dough.version>1.2.0</dough.version>
-        <sefilib.version>0.3.1-DRAKE-SNAPSHOT</sefilib.version>
+        <sefilib.version>0.3.1-Universal-26.x-SNAPSHOT</sefilib.version>
         <foundry.version>11-SNAPSHOT</foundry.version>
-        <lombok.version>1.18.46</lombok.version>
+        <lombok.version>1.18.48</lombok.version>
         <jsr305.version>3.0.2</jsr305.version>
         <xseries.version>13.8.0</xseries.version>
         <junit.version>6.1.2</junit.version>
@@ -77,11 +77,15 @@
                     <createDependencyReducedPom>false</createDependencyReducedPom>
                     <artifactSet>
                         <includes>
-                            <include>com.github.drakescraft_labs:sefilib-drake</include>
+                            <include>com.github.drakescraft_labs:SefiLib</include>
                             <include>com.github.cryptomorin:XSeries</include>
                         </includes>
                     </artifactSet>
                     <relocations>
+                        <relocation>
+                            <pattern>io.github.bakedlibs.dough</pattern>
+                            <shadedPattern>io.github.thebusybiscuit.slimefun4.libraries.dough</shadedPattern>
+                        </relocation>
                         <relocation>
                             <pattern>com.cryptomorin.xseries</pattern>
                             <shadedPattern>io.github.sefiraat.networks.libs.xseries</shadedPattern>
@@ -91,14 +95,14 @@
                         <filter>
                             <artifact>*:*</artifact>
                             <excludes>
-                                <exclude>dev/drake/sefilib/slimefun/**</exclude>
-                                <exclude>dev/drake/sefilib/entity/**</exclude>
-                                <exclude>dev/drake/sefilib/protections/**</exclude>
-                                <exclude>dev/drake/sefilib/itemstacks/**</exclude>
-                                <exclude>dev/drake/sefilib/recipes/**</exclude>
-                                <exclude>dev/drake/sefilib/string/**</exclude>
-                                <exclude>dev/drake/sefilib/version/**</exclude>
-                                <exclude>dev/drake/dough/protection/**</exclude>
+                                <exclude>dev/sefiraat/sefilib/slimefun/**</exclude>
+                                <exclude>dev/sefiraat/sefilib/entity/**</exclude>
+                                <exclude>dev/sefiraat/sefilib/protections/**</exclude>
+                                <exclude>dev/sefiraat/sefilib/itemstacks/**</exclude>
+                                <exclude>dev/sefiraat/sefilib/recipes/**</exclude>
+                                <exclude>dev/sefiraat/sefilib/string/**</exclude>
+                                <exclude>dev/sefiraat/sefilib/version/**</exclude>
+                                <exclude>dev/sefiraat/dough/protection/**</exclude>
                                 <exclude>META-INF/MANIFEST.MF</exclude>
                                 <exclude>META-INF/*.SF</exclude>
                                 <exclude>META-INF/*.DSA</exclude>
@@ -134,6 +138,38 @@
             </resource>
         </resources>
     </build>
+
+    <profiles>
+        <!-- 26.x: Netheopoiesis-26x no esta en ningun repo Maven. Si el jar del servidor T2 existe en
+             esta maquina se compila NetheoPlants contra el; en CI (sin el jar) se excluye y Networks
+             lo carga por reflexion. El jar de prod debe construirse en Nova. -->
+        <profile>
+            <id>netheo-26x</id>
+            <activation>
+                <file><exists>${user.home}/server-t2-nova/plugins/Netheopoiesis-26x.jar</exists></file>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>dev.sefiraat</groupId>
+                    <artifactId>Netheopoiesis-26x</artifactId>
+                    <version>local</version>
+                    <scope>system</scope>
+                    <systemPath>${user.home}/server-t2-nova/plugins/Netheopoiesis-26x.jar</systemPath>
+                </dependency>
+            </dependencies>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <excludes combine.self="override"/>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
     <repositories>
         <repository>
@@ -184,7 +220,7 @@
         </dependency>
         <dependency>
             <groupId>com.github.drakescraft_labs</groupId>
-            <artifactId>sefilib-drake</artifactId>
+            <artifactId>SefiLib</artifactId>
             <version>${sefilib.version}</version>
         </dependency>
         <dependency>
@@ -242,6 +278,18 @@
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.bytebuddy</groupId>
+            <artifactId>byte-buddy</artifactId>
+            <version>1.17.7</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.bytebuddy</groupId>
+            <artifactId>byte-buddy-agent</artifactId>
+            <version>1.17.7</version>
             <scope>test</scope>
         </dependency>
         <dependency>

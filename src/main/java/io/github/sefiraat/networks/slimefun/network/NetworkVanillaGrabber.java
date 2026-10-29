@@ -117,6 +117,11 @@ public class NetworkVanillaGrabber extends NetworkDirectional {
         final BlockState blockState = BlockStateRefreshListener.getFreshState(targetBlock);
 
         if (!(blockState instanceof InventoryHolder holder)) {
+            // Puente MultiverseNets: si el target es una red de Chagui, jalar de su storage virtual.
+            if (io.github.sefiraat.networks.compat.MultiverseNetsBridge.isNetworkBlock(targetBlock)) {
+                grabFromMultiverseNets(root, targetBlock);
+                return true;
+            }
             return false;
         }
 
@@ -171,6 +176,23 @@ public class NetworkVanillaGrabber extends NetworkDirectional {
             }
         }
         return flushed;
+    }
+
+    // Puente MultiverseNets: extrae items del storage virtual de una red de Chagui y los mete a la red Slimefun.
+    private void grabFromMultiverseNets(@Nonnull NetworkRoot root, @Nonnull Block targetBlock) {
+        final int maxStacks = Math.min(100, 6 + root.getCellsSize() * 4); // mismo ritmo dinamico que el grabber vanilla
+        for (int i = 0; i < maxStacks; i++) {
+            final ItemStack extracted = io.github.sefiraat.networks.compat.MultiverseNetsBridge.extract(targetBlock, s -> true, 64);
+            if (extracted == null || extracted.getType() == Material.AIR || extracted.getAmount() <= 0) {
+                break;
+            }
+            root.addItemStack(extracted); // muta la cantidad de 'extracted' al sobrante
+            if (extracted.getAmount() > 0) {
+                // La red Slimefun no tuvo espacio: devolver el sobrante a MultiverseNets y parar.
+                io.github.sefiraat.networks.compat.MultiverseNetsBridge.insert(targetBlock, extracted);
+                break;
+            }
+        }
     }
 
     private boolean flushOutputBuffer(@Nonnull BlockMenu blockMenu, @Nonnull NetworkRoot root, @Nonnull Location accessor) {
