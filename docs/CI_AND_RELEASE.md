@@ -20,6 +20,6 @@ Incluye regresiones MockBukkit + Slimefun Drake:
 
 ## Dependencias en CI
 
-Los workflows compilan primero `DrakesCraft-Labs/drakes-slimefun-labs` (rama `main`) e instalan Dough, Slimefun, SefiLib e InfinityExpansion en `.m2`, luego construyen este repo.
+Los workflows compilan primero `SlimefunNewHorizons/drakes-slimefun-labs` (rama `main`) e instalan Dough, Slimefun, SefiLib e InfinityExpansion en `.m2`, luego construyen este repo.
 
 Token: `GITHUB_TOKEN` con lectura de GitHub Packages (`github-drakes-foundry`).

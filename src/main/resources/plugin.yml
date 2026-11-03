@@ -1,8 +1,8 @@
 name: NetworksV6-Drake
-authors: [Sefiraat, Chagui68, mmmjjkx, DrakesCraft-Labs]
+authors: [Sefiraat, Chagui68, mmmjjkx, SlimefunNewHorizons]
 description: Networks V6 ported and stabilized for Drake Labs 1.21.x.
 main: io.github.sefiraat.networks.Networks
-website: https://github.com/DrakesCraft-Labs/NetworksV6-drake
+website: https://github.com/SlimefunNewHorizons/NetworksV6-drake
 version: ${project.version}
 api-version: "1.21"
 

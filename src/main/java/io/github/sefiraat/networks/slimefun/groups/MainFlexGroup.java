@@ -102,7 +102,7 @@ public class MainFlexGroup extends FlexItemGroup {
             final TextComponent link = new TextComponent("Abre la guia de Networks DrakesCraft");
             link.setColor(ChatColor.YELLOW);
             link.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL,
-                "https://github.com/DrakesCraft-Labs/NetworksV6-drake#readme"));
+                "https://github.com/SlimefunNewHorizons/NetworksV6-drake#readme"));
             player.spigot().sendMessage(link);
             return false;
         });

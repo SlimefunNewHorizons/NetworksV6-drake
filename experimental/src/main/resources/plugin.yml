@@ -1,8 +1,8 @@
 name: NetworksExperimental-Drake
-authors: [Sefiraat, mmmjjkx, Chagui68, DrakesCraft-Labs]
+authors: [Sefiraat, mmmjjkx, Chagui68, SlimefunNewHorizons]
 description: Experimental Networks fork under Drake Labs audit; not the production NetworksV6-Drake jar.
 main: io.github.sefiraat.networks.Networks
-website: https://github.com/DrakesCraft-Labs/drakes-slimefun-labs
+website: https://github.com/SlimefunNewHorizons/drakes-slimefun-labs
 version: ${project.version}
 api-version: "1.21"
 depend:

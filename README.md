@@ -1,19 +1,19 @@
 > [!WARNING]
 > ### ⚠️ ARCHIVADO / CONSOLIDADO EN DRAKES-SUITES
 > Este repositorio ha sido consolidado de forma definitiva en el monorepo oficial:  
-> 👉 [**Drakes-Suites (Suite 1: DrakesTech)**](https://github.com/DrakesCraft-Labs/Drakes-Suites)  
+> 👉 [**Drakes-Suites (Suite 1: DrakesTech)**](https://github.com/SlimefunNewHorizons/Drakes-Suites)  
 > Todo el desarrollo activo, optimizaciones del Ticker Engine, compatibilidad con Paper 1.21.11 y preparación para 26.X se realiza exclusivamente allí.
 
 <div align="center">
 
-  <img src="https://raw.githubusercontent.com/DrakesCraft-Labs/NetworksV6-drake/main/banner.svg" alt="NetworksV6-drake Banner" width="920" />
+  <img src="https://raw.githubusercontent.com/SlimefunNewHorizons/NetworksV6-drake/main/banner.svg" alt="NetworksV6-drake Banner" width="920" />
 
 # ⚡ NetworksV6-Drake
 
 **Logística digital avanzada, almacenamiento cuántico, autocrafteo inteligente y redes de transporte masivo para Slimefun4.**
 
 <p>
-  <a href="https://github.com/DrakesCraft-Labs/NetworksV6-drake"><img src="https://img.shields.io/badge/GitHub-NetworksV6--Drake-181717?style=for-the-badge&logo=github" alt="GitHub"/></a>
+  <a href="https://github.com/SlimefunNewHorizons/NetworksV6-drake"><img src="https://img.shields.io/badge/GitHub-NetworksV6--Drake-181717?style=for-the-badge&logo=github" alt="GitHub"/></a>
   <img src="https://img.shields.io/badge/Slimefun4-Drake_Edition-22C55E?style=for-the-badge&logo=curseforge&logoColor=white" alt="Slimefun4"/>
   <img src="https://img.shields.io/badge/Paper-1.21.11-38BDF8?style=for-the-badge&logo=minecraft&logoColor=white" alt="Paper 1.21.11"/>
   <img src="https://img.shields.io/badge/Java-21-F89820?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 21"/>
@@ -77,7 +77,7 @@
 |---|---|
 | **Servidor** | Paper / Purpur / Folia **1.21.11** |
 | **Java** | **Java 21** LTS |
-| **Core Requerido** | [Slimefun4-Drake](https://github.com/DrakesCraft-Labs/Slimefun4-Drake) |
+| **Core Requerido** | [Slimefun4-Drake](https://github.com/SlimefunNewHorizons/Slimefun4-Drake) |
 | **Arquitectura** | 100% Server-side |
 
 ---
@@ -92,7 +92,7 @@
 
 <div align="center">
 
-**Desarrollado y Mantenido por [DrakesCraft Labs](https://github.com/DrakesCraft-Labs)**  
+**Desarrollado y Mantenido por [DrakesCraft Labs](https://github.com/SlimefunNewHorizons)**  
 *Basado en el diseño original de Sefiraat y mmmjjkx.*  
 Licencia **GPL-3.0-only**.
 

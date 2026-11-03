@@ -44,7 +44,7 @@ public class Networks extends JavaPlugin implements SlimefunAddon {
     private QuantumStorageMirror quantumStorageMirror;
 
     public Networks() {
-        this.username = "DrakesCraft-Labs";
+        this.username = "SlimefunNewHorizons";
         this.repo = "NetworksV6-drake";
         this.branch = "main";
     }
@@ -56,7 +56,7 @@ public class Networks extends JavaPlugin implements SlimefunAddon {
         getLogger().info("########################################");
         getLogger().info("      Networks DrakesCraft Edition      ");
         getLogger().info("      Original author: Sefiraat         ");
-        getLogger().info(" Repo: DrakesCraft-Labs/NetworksV6-drake");
+        getLogger().info(" Repo: SlimefunNewHorizons/NetworksV6-drake");
         getLogger().info("########################################");
 
         saveDefaultConfig();

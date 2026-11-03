@@ -11,11 +11,11 @@
 
     <name>NetworksV6-Drake</name>
     <description>Networks V6 addon for Drake Labs Slimefun stack (standalone repository).</description>
-    <url>https://github.com/DrakesCraft-Labs/NetworksV6-drake</url>
+    <url>https://github.com/SlimefunNewHorizons/NetworksV6-drake</url>
 
     <organization>
         <name>DrakesCraft Labs</name>
-        <url>https://github.com/DrakesCraft-Labs</url>
+        <url>https://github.com/SlimefunNewHorizons</url>
     </organization>
 
     <properties>

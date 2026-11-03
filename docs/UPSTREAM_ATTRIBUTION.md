@@ -8,7 +8,7 @@ se conserve el credito y la propia licencia.
 
 - Sefiraat
 - mmmjjkx
-- DrakesCraft-Labs
+- SlimefunNewHorizons
 
 El diseno, las mecanicas y la mayor parte del codigo son suyos. DrakesCraft Labs no reclama
 autoria sobre ese trabajo.
