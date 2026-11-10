@@ -54,6 +54,12 @@ public final class NetworkIntegrity {
      * items are all physical NTW_* blocks, so virtual-item exemptions do not apply here.
      */
     public static boolean hasExpectedPhysicalMaterial(@Nonnull Block block, @Nonnull SlimefunItem item) {
+        if ("NTW_BRIDGE".equals(item.getId())) {
+            final String camo = BlockStorage.getLocationInfo(block.getLocation(), "camo_material");
+            if (camo != null) {
+                return block.getType().name().equals(camo);
+            }
+        }
         return matchesPhysicalMaterial(block.getType(), item.getItem().getType());
     }
 

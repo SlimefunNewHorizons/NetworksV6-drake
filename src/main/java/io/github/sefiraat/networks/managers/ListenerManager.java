@@ -2,6 +2,8 @@ package io.github.sefiraat.networks.managers;
 
 import io.github.sefiraat.networks.Networks;
 import io.github.sefiraat.networks.listeners.BlockStateRefreshListener;
+import io.github.sefiraat.networks.listeners.BridgeCamouflageListener;
+import io.github.sefiraat.networks.listeners.CreativeModeGuardListener;
 import io.github.sefiraat.networks.listeners.ExplosiveToolListener;
 import io.github.sefiraat.networks.listeners.GridDupeGuardListener;
 import io.github.sefiraat.networks.listeners.IslandSyncListener;
@@ -17,6 +19,8 @@ public class ListenerManager {
         addListener(new IslandSyncListener());
         addListener(new GridDupeGuardListener());
         addListener(new BlockStateRefreshListener());
+        addListener(new BridgeCamouflageListener());
+        addListener(new CreativeModeGuardListener());
     }
 
     private void addListener(Listener listener) {

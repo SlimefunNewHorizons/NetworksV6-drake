@@ -186,6 +186,19 @@ public class SyncListener implements Listener {
             final io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem item =
                 BlockStorage.check(location);
 
+            if ("NTW_BRIDGE".equals(item != null ? item.getId() : null)) {
+                String camoName = BlockStorage.getLocationInfo(location, "camo_material");
+                if (camoName != null) {
+                    try {
+                        org.bukkit.Material camoMat = org.bukkit.Material.valueOf(camoName);
+                        if (location.getBlock().getType() != camoMat) {
+                            location.getBlock().setType(camoMat, false);
+                        }
+                    } catch (IllegalArgumentException ignored) {
+                    }
+                }
+            }
+
             if (item instanceof NetworkObject
                     && !NetworkIntegrity.hasExpectedPhysicalMaterial(location.getBlock(), item)) {
                 NetworkUtils.clearNetwork(location);

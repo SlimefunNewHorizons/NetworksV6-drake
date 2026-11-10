@@ -1,6 +1,8 @@
 package io.github.sefiraat.networks.slimefun.network;
 
 import io.github.sefiraat.networks.Networks;
+import io.github.sefiraat.networks.holograms.NetworkHologramManager;
+
 import io.github.sefiraat.networks.network.stackcaches.QuantumCache;
 import io.github.sefiraat.networks.utils.*;
 import io.github.sefiraat.networks.utils.datatypes.DataTypeMethods;
@@ -395,6 +397,7 @@ public class NetworkQuantumStorage extends SlimefunItem implements DistinctiveIt
 
     protected void onBreak(@Nonnull BlockBreakEvent event) {
         final Location location = event.getBlock().getLocation();
+        NetworkHologramManager.removeQuantumHologram(location);
         final BlockMenu blockMenu = BlockStorage.getInventory(event.getBlock());
 
         if (blockMenu != null) {
@@ -552,6 +555,7 @@ public class NetworkQuantumStorage extends SlimefunItem implements DistinctiveIt
         BlockStorage.addBlockInfo(location, BS_AMOUNT, String.valueOf(cache.getAmount()));
         BlockStorage.addBlockInfo(location, BS_VOID, String.valueOf(cache.isVoidExcess()));
         Networks.getInstance().recordQuantumStorage(location, cache);
+        NetworkHologramManager.updateQuantumHologram(location, cache.getItemStack(), cache.getAmount(), cache.getLimit());
     }
 
     public static Map<Location, QuantumCache> getCaches() {
