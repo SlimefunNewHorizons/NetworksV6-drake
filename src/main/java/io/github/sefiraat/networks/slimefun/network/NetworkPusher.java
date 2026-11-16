@@ -91,16 +91,22 @@ public class NetworkPusher extends NetworkDirectional {
             clone.setAmount(1);
 
             int[] slots = NetworkTransportUtils.getTransportSlots(targetMenu, ItemTransportFlow.INSERT, clone);
-            final int insertionCapacity = getInsertionCapacity(targetMenu, slots, clone);
-            if (insertionCapacity <= 0) {
-                continue;
-            }
+            int pushedForSlot = 0;
+            final int MAX_PUSH_PER_SLOT = 256;
 
-            final ItemRequest itemRequest = new ItemRequest(
-                    clone,
-                    Math.min(insertionCapacity, clone.getMaxStackSize()));
-            final ItemStack retrieved = definition.getNode().getRoot().getItemStack0(blockMenu.getLocation(), itemRequest);
-            if (retrieved != null) {
+            while (pushedForSlot < MAX_PUSH_PER_SLOT) {
+                final int insertionCapacity = getInsertionCapacity(targetMenu, slots, clone);
+                if (insertionCapacity <= 0) {
+                    break;
+                }
+
+                final int toRequest = Math.min(insertionCapacity, Math.min(clone.getMaxStackSize(), MAX_PUSH_PER_SLOT - pushedForSlot));
+                final ItemRequest itemRequest = new ItemRequest(clone, toRequest);
+                final ItemStack retrieved = definition.getNode().getRoot().getItemStack0(blockMenu.getLocation(), itemRequest);
+                if (retrieved == null || retrieved.getAmount() <= 0) {
+                    break;
+                }
+
                 final int retrievedAmount = retrieved.getAmount();
                 final ItemStack leftover = targetMenu.pushItem(retrieved, slots);
                 final int insertedAmount = leftover == null ? retrievedAmount : retrievedAmount - leftover.getAmount();
@@ -110,11 +116,18 @@ public class NetworkPusher extends NetworkDirectional {
                 }
 
                 if (insertedAmount > 0) {
+                    pushedForSlot += insertedAmount;
                     anyMoved = true;
-                    if (definition.getNode().getRoot().isDisplayParticles()) {
-                        showParticle(blockMenu.getLocation(), direction);
+                    if (leftover != null && leftover.getAmount() > 0) {
+                        break;
                     }
+                } else {
+                    break;
                 }
+            }
+
+            if (pushedForSlot > 0 && definition.getNode().getRoot().isDisplayParticles()) {
+                showParticle(blockMenu.getLocation(), direction);
             }
         }
         return anyMoved;
