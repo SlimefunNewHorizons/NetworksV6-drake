@@ -57,6 +57,8 @@ public class NetworkGrabber extends NetworkDirectional {
         }
 
         int[] slots = NetworkTransportUtils.getTransportSlots(targetMenu, ItemTransportFlow.WITHDRAW, null);
+        int totalConsumed = 0;
+        final int MAX_BATCH = 256;
 
         for (int slot : slots) {
             final ItemStack itemStack = targetMenu.getItemInSlot(slot);
@@ -69,13 +71,20 @@ public class NetworkGrabber extends NetworkDirectional {
                         slot);
 
                 if (consumed > 0) {
-                    blockMenu.markDirty();
-                    if (definition.getNode().getRoot().isDisplayParticles()) {
-                        showParticle(blockMenu.getLocation(), direction);
+                    totalConsumed += consumed;
+                    if (totalConsumed >= MAX_BATCH) {
+                        break;
                     }
-                    return true;
                 }
             }
+        }
+
+        if (totalConsumed > 0) {
+            blockMenu.markDirty();
+            if (definition.getNode().getRoot().isDisplayParticles()) {
+                showParticle(blockMenu.getLocation(), direction);
+            }
+            return true;
         }
         return false;
     }

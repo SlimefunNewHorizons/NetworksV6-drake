@@ -168,11 +168,19 @@ public class NetworkVanillaGrabber extends NetworkDirectional {
                     }
                 }
             }
-        } else {
+            int totalPulled = 0;
+            final int MAX_BATCH = 256;
             for (int slot = 0; slot < inventory.getSize(); slot++) {
-                if (tryPullFromInventory(blockMenu, root, accessor, inventory, slot) > 0) {
-                    return true;
+                int pulled = tryPullFromInventory(blockMenu, root, accessor, inventory, slot);
+                if (pulled > 0) {
+                    totalPulled += pulled;
+                    if (totalPulled >= MAX_BATCH) {
+                        break;
+                    }
                 }
+            }
+            if (totalPulled > 0) {
+                return true;
             }
         }
         return flushed;
