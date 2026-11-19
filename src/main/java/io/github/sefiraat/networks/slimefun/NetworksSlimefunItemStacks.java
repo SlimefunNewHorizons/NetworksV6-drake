@@ -97,6 +97,7 @@ public class NetworksSlimefunItemStacks {
     public static final SlimefunItemStack NETWORK_REMOTE_EMPOWERED;
     public static final SlimefunItemStack NETWORK_REMOTE_PRISTINE;
     public static final SlimefunItemStack NETWORK_REMOTE_ULTIMATE;
+    public static final SlimefunItemStack NETWORK_CLOUD_LINK;
     public static final SlimefunItemStack NETWORK_CRAYON;
     public static final SlimefunItemStack NETWORK_CONFIGURATOR;
     public static final SlimefunItemStack NETWORK_WIRELESS_CONFIGURATOR;
@@ -919,6 +920,20 @@ public class NetworksSlimefunItemStacks {
             "The grid must be chunk loaded.",
             "",
             MessageFormat.format("{0}Range: {1}{2}", Theme.CLICK_INFO, Theme.PASSIVE, "Cross Dimensional")
+        );
+
+        NETWORK_CLOUD_LINK = Theme.themedSlimefunItemStack(
+            "NTW_CLOUD_LINK",
+            getPreEnchantedItemStack(Material.RECOVERY_COMPASS, true, new Pair<>(XEnchantment.POWER.get(), 1)),
+            Theme.TOOL,
+            "Network Cloud-Link",
+            "Wireless Drive & Auto-Vacuum for your Network.",
+            "Shift+Right Click a Grid, Network block or connected",
+            "chest to bind. Right Click air to open the Grid.",
+            "Shift+Left Click air to dump inventory (0..35).",
+            "Shift+Right Click air to toggle Auto-Vacuum.",
+            "",
+            MessageFormat.format("{0}Protection: {1}Armor, Offhand & Tools Safe", Theme.CLICK_INFO, Theme.PASSIVE)
         );
 
         NETWORK_CRAYON = Theme.themedSlimefunItemStack(

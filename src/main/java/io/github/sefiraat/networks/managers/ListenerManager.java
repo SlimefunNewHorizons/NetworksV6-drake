@@ -3,6 +3,7 @@ package io.github.sefiraat.networks.managers;
 import io.github.sefiraat.networks.Networks;
 import io.github.sefiraat.networks.listeners.BlockStateRefreshListener;
 import io.github.sefiraat.networks.listeners.BridgeCamouflageListener;
+import io.github.sefiraat.networks.listeners.CloudLinkListener;
 import io.github.sefiraat.networks.listeners.CreativeModeGuardListener;
 import io.github.sefiraat.networks.listeners.ExplosiveToolListener;
 import io.github.sefiraat.networks.listeners.GridDupeGuardListener;
@@ -21,6 +22,7 @@ public class ListenerManager {
         addListener(new BlockStateRefreshListener());
         addListener(new BridgeCamouflageListener());
         addListener(new CreativeModeGuardListener());
+        addListener(new CloudLinkListener());
     }
 
     private void addListener(Listener listener) {

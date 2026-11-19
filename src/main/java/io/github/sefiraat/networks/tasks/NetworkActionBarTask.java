@@ -9,6 +9,7 @@ import io.github.sefiraat.networks.slimefun.tools.NetworkCard;
 import io.github.sefiraat.networks.slimefun.tools.NetworkConfigurator;
 import io.github.sefiraat.networks.slimefun.tools.NetworkCrayon;
 import io.github.sefiraat.networks.slimefun.tools.NetworkProbe;
+import io.github.sefiraat.networks.slimefun.tools.NetworkCloudLink;
 import io.github.sefiraat.networks.slimefun.tools.NetworkRemote;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import net.kyori.adventure.text.Component;
@@ -99,6 +100,7 @@ public class NetworkActionBarTask extends BukkitRunnable {
             || sfItem instanceof NetworkConfigurator
             || sfItem instanceof NetworkCrayon
             || sfItem instanceof NetworkRemote
+            || sfItem instanceof NetworkCloudLink
             || sfItem instanceof NetworkCard;
     }
 }

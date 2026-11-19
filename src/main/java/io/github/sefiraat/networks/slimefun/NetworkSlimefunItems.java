@@ -87,6 +87,7 @@ public class NetworkSlimefunItems {
     public static final NetworkRemote NETWORK_REMOTE_EMPOWERED;
     public static final NetworkRemote NETWORK_REMOTE_PRISTINE;
     public static final NetworkRemote NETWORK_REMOTE_ULTIMATE;
+    public static final NetworkCloudLink NETWORK_CLOUD_LINK;
     public static final NetworkCrayon NETWORK_CRAYON;
     public static final NetworkConfigurator NETWORK_CONFIGURATOR;
     public static final NetworkWirelessConfigurator NETWORK_WIRELESS_CONFIGURATOR;
@@ -877,6 +878,17 @@ public class NetworkSlimefunItems {
                 NetworkRemote.getRanges()[3]
         );
 
+        NETWORK_CLOUD_LINK = new NetworkCloudLink(
+                NetworksItemGroups.TOOLS,
+                NetworksSlimefunItemStacks.NETWORK_CLOUD_LINK,
+                RecipeType.ENHANCED_CRAFTING_TABLE,
+                makeRecipe(
+                        OPTIC_GLASS.getItem(), NETWORK_REMOTE_ULTIMATE.getItem(), OPTIC_GLASS.getItem(),
+                        NETWORK_VACUUM.getItem(), INTERDIMENSIONAL_PRESENCE.getItem(), NETWORK_CELL.getItem(),
+                        OPTIC_STAR.getItem(), NETWORK_GRID.getItem(), OPTIC_STAR.getItem()
+                )
+        );
+
         NETWORK_CRAYON = new NetworkCrayon(
                 NetworksItemGroups.TOOLS,
                 NetworksSlimefunItemStacks.NETWORK_CRAYON,
@@ -1041,6 +1053,7 @@ public class NetworkSlimefunItems {
         NETWORK_REMOTE_EMPOWERED.register(plugin);
         NETWORK_REMOTE_PRISTINE.register(plugin);
         NETWORK_REMOTE_ULTIMATE.register(plugin);
+        NETWORK_CLOUD_LINK.register(plugin);
         NETWORK_CRAYON.register(plugin);
         NETWORK_CONFIGURATOR.register(plugin);
         NETWORK_WIRELESS_CONFIGURATOR.register(plugin);
