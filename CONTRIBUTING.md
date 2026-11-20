@@ -1,22 +1,47 @@
-# Contributing
+# Contributing Guidelines & Engineering Standards
 
-When contributing to this repository, please first discuss the change you wish to make via the Slimefun Addon Community Discord server (https://discord.gg/J4KurMDCKU).
+Welcome to **NetworksV6-drake**! This repository is part of DrakesCraft Labs: Addon standalone de Networks portado y parcheado para DrakesCraft.
 
-Please note we have a code of conduct, please follow it in all your interactions with the project.
+---
 
-## Pull Request Process
+## 🏛️ Code of Conduct & Mutual Respect
 
-1. Ensure any install or build dependencies are removed before the end of the layer when doing a 
-   build.
-2. Ensure valid annotations and JavaDocs have been added to new, public, methods and code has been commented for clarify where appropriate.
-3. Increase the version numbers in the pon.xml file to the new version that this
-   Pull Request would represent. The versioning scheme we use is [SemVer](http://semver.org/).
-4. You may merge the Pull Request in once you have the sign-off of one other developer, or if you 
-   do not have permission to do that, you may request the reviewer to merge it for you.
+All contributors, reviewers, and maintainers are required to follow our [Code of Conduct](CODE_OF_CONDUCT.md).
+We expect all discussions in issues and pull requests to remain professional, constructive, and technically grounded.
+**Insults, demanding entitlement, toxic behavior, or harassment will result in immediate thread locking and account blocking.**
 
-<!-- DRAKES-STATUS:BEGIN -->
-> Estado de sincronizacion: **2026-04-24**.
-> Baseline tecnico vigente: **Paper 1.21.1 + Java 21**.
-> CI principal en `main`: **Gates 1-5 en verde**.
-> Nota: el monorepo completo sigue en migracion incremental por lotes.
-<!-- DRAKES-STATUS:END -->
+---
+
+## 📋 Issue-First Workflow (Mandatory)
+
+Before opening a Pull Request:
+1. **Search existing issues** to avoid duplicate proposals.
+2. **Open an Issue first** describing the bug with logs and environment details, or detailing the proposed feature before writing code.
+3. **Wait for maintainer approval** before undertaking large refactors or adding dependencies. Unsolicited massive PRs will be closed without review.
+
+---
+
+## 🛡️ SRE Golden Rule: Zero Production Disruption & Anti-Dupe
+
+* **Zero Item Loss**: Any changes interacting with BlockStorage, PDC, item serialization, or databases must guarantee 100% data integrity and zero duplication vulnerabilities.
+* **Asynchronous Execution**: Never block the Spigot main tick thread with heavy database or network calls.
+* **Language Standards**: All in-game GUI titles, item lores, and player-visible messages must be written in **English**.
+
+---
+
+## 🛠️ Stack & Quality Standards (Java 21 / Maven / Paper 1.21.11)
+
+* **Quality Gates**:
+  - Verification: `mvn clean package` must pass cleanly.
+  - Linting: `mvn checkstyle:check` must produce zero errors.
+* **Clean Git History**: Commits must follow Conventional Commits (`feat: ...`, `fix: ...`, `docs: ...`).
+
+---
+
+## 🤖 AI-Assisted and Agent Contributions
+
+We enforce a strict **Zero-Slop Policy**:
+* If an AI was used, disclose it in the PR description.
+* The human contributor assumes **100% engineering responsibility** for every line of code submitted.
+* Fabricated Bukkit/Spigot methods, hallucinated Slimefun APIs, non-compiling boilerplate, or unchecked AI diffs will be closed immediately as spam.
+* Detailed requirements for automated tools and AI agents are documented in [AGENTS.md](AGENTS.md).
