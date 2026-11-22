@@ -20,6 +20,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.inventory.ItemStack;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Optional;
 
 public class NetworkBridge extends NetworkObject {
@@ -27,6 +28,35 @@ public class NetworkBridge extends NetworkObject {
     public NetworkBridge(ItemGroup itemGroup, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe, ItemStack recipeOutput) {
         super(itemGroup, item, recipeType, recipe, recipeOutput, NodeType.BRIDGE);
         addItemHandler((BlockUseHandler) this::onRightClick);
+    }
+
+    /**
+     * Determina si una interaccion con Shift+Click Derecho debe cederse a la colocacion
+     * vanilla/Slimefun de bloques en lugar de abrir la GUI o aplicar camuflaje.
+     */
+    public static boolean shouldAllowSneakPlacement(@Nonnull Player player, @Nullable ItemStack eventItem) {
+        return shouldAllowSneakPlacement(
+            player.isSneaking(),
+            player.getInventory().getItemInMainHand(),
+            player.getInventory().getItemInOffHand(),
+            eventItem
+        );
+    }
+
+    public static boolean shouldAllowSneakPlacement(
+            boolean sneaking,
+            @Nullable ItemStack mainHand,
+            @Nullable ItemStack offHand,
+            @Nullable ItemStack eventItem
+    ) {
+        if (!sneaking) {
+            return false;
+        }
+        return isPlaceableBlock(eventItem) || isPlaceableBlock(mainHand) || isPlaceableBlock(offHand);
+    }
+
+    public static boolean isPlaceableBlock(@Nullable ItemStack item) {
+        return item != null && !item.getType().isAir() && item.getType().isBlock();
     }
 
     private void onRightClick(@Nonnull PlayerRightClickEvent event) {
@@ -37,15 +67,20 @@ public class NetworkBridge extends NetworkObject {
 
         final Block block = blockOptional.get();
         final Player player = event.getPlayer();
+        final ItemStack itemInHand = event.getItem();
+
+        // Shift + Click Derecho con un bloque colocable (mainhand/offhand):
+        // NO cancelar ni abrir GUI, permitir colocar bloques/bridges encima normalmente.
+        if (shouldAllowSneakPlacement(player, itemInHand)) {
+            return;
+        }
 
         if (!Slimefun.getProtectionManager().hasPermission(player, block.getLocation(), Interaction.INTERACT_BLOCK)) {
             return;
         }
 
-        final ItemStack itemInHand = event.getItem();
-
-        // Si el jugador hace clic derecho con un bloque solido apto para camuflaje:
-        if (itemInHand != null && !itemInHand.getType().isAir() && CableCamouflage.allowed(itemInHand)) {
+        // Si el jugador (sin agacharse) hace clic derecho con un bloque solido apto para camuflaje:
+        if (!player.isSneaking() && itemInHand != null && !itemInHand.getType().isAir() && CableCamouflage.allowed(itemInHand)) {
             event.cancel();
             ItemStack previous = CableCamouflage.apply(block, itemInHand, player);
             if (player.getGameMode() != GameMode.CREATIVE) {
@@ -61,9 +96,11 @@ public class NetworkBridge extends NetworkObject {
             return;
         }
 
-        // Si tiene la mano vacia o esta agachado o interactua con cualquier otro item:
-        event.cancel();
-        new CableCamouflageMenu(block, player).open();
+        // Solo abrir el menu de camuflaje con mano vacia (evita secuestrar colocacion de otros bloques/nodos).
+        if (itemInHand == null || itemInHand.getType().isAir()) {
+            event.cancel();
+            new CableCamouflageMenu(block, player).open();
+        }
     }
 
     @Override

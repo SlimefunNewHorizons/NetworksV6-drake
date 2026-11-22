@@ -12,6 +12,8 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.util.Transformation;
+import org.joml.Vector3f;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -30,6 +32,12 @@ public final class NetworkHologramManager {
 
     private static final Map<Location, UUID> CONTROLLER_HOLOGRAMS = new ConcurrentHashMap<>();
     private static final Map<Location, UUID> QUANTUM_HOLOGRAMS = new ConcurrentHashMap<>();
+
+    public static final float QUANTUM_SCALE = 0.50f;
+    public static final int QUANTUM_LINE_WIDTH = 120;
+    public static final float QUANTUM_VIEW_RANGE = 0.20f;
+    public static final double QUANTUM_Y_OFFSET = 1.15;
+    public static final int QUANTUM_MAX_NAME_LENGTH = 16;
 
     private static final NamespacedKey HOLO_KEY = new NamespacedKey("networks", "controller_hologram");
     private static final NamespacedKey QUANTUM_HOLO_KEY = new NamespacedKey("networks", "quantum_hologram");
@@ -128,7 +136,7 @@ public final class NetworkHologramManager {
         }
 
         if (textDisplay == null) {
-            Location spawnLoc = location.clone().add(0.5, 1.35, 0.5);
+            Location spawnLoc = location.clone().add(0.5, QUANTUM_Y_OFFSET, 0.5);
             for (Entity nearby : world.getNearbyEntities(spawnLoc, 1.0, 1.0, 1.0)) {
                 if (nearby instanceof TextDisplay td && td.getPersistentDataContainer().has(QUANTUM_HOLO_KEY, PersistentDataType.BYTE)) {
                     nearby.remove();
@@ -141,28 +149,91 @@ public final class NetworkHologramManager {
                 td.setSeeThrough(false);
                 td.setShadowed(true);
                 td.setPersistent(false);
+                configureQuantumDisplay(td);
                 td.getPersistentDataContainer().set(QUANTUM_HOLO_KEY, PersistentDataType.BYTE, (byte) 1);
             });
             QUANTUM_HOLOGRAMS.put(location, textDisplay.getUniqueId());
-        }
-
-        String itemName;
-        if (storedItem != null) {
-            if (storedItem.getItemMeta() != null && storedItem.getItemMeta().hasDisplayName()) {
-                itemName = storedItem.getItemMeta().getDisplayName();
-            } else {
-                itemName = StringUtils.toTitleCase(storedItem.getType().name().replace('_', ' '));
-            }
         } else {
-            itemName = "§7[ Vacío ]";
+            configureQuantumDisplay(textDisplay);
         }
 
-        String line1 = "§b§l⚡ QUANTUM STORAGE ⚡";
-        String line2 = storedItem != null
-            ? String.format(Locale.ROOT, "§f%s §7x§e%s §8/ §7%s", itemName, NumberFormat.getInstance().format(amount), NumberFormat.getInstance().format(maxCapacity))
-            : "§8« Ranura disponible »";
+        textDisplay.text(Component.text(formatQuantumText(storedItem, amount, maxCapacity)));
+    }
 
-        textDisplay.text(Component.text(line1 + "\n" + line2));
+    static void configureQuantumDisplay(@Nonnull TextDisplay td) {
+        Transformation current = td.getTransformation();
+        td.setTransformation(new Transformation(
+            current.getTranslation(),
+            current.getLeftRotation(),
+            new Vector3f(QUANTUM_SCALE, QUANTUM_SCALE, QUANTUM_SCALE),
+            current.getRightRotation()
+        ));
+        td.setLineWidth(QUANTUM_LINE_WIDTH);
+        td.setViewRange(QUANTUM_VIEW_RANGE);
+        td.setAlignment(TextDisplay.TextAlignment.CENTER);
+    }
+
+    @Nonnull
+    public static String formatQuantumText(@Nullable ItemStack storedItem, long amount, long maxCapacity) {
+        if (storedItem == null) {
+            return "§7Vacío\n§80/" + formatCompactNumber(maxCapacity);
+        }
+
+        String rawName;
+        if (storedItem.getItemMeta() != null && storedItem.getItemMeta().hasDisplayName()) {
+            rawName = storedItem.getItemMeta().getDisplayName();
+        } else {
+            rawName = StringUtils.toTitleCase(storedItem.getType().name().replace('_', ' '));
+        }
+
+        String compactName = truncateItemName(rawName, QUANTUM_MAX_NAME_LENGTH);
+        return String.format(
+            Locale.ROOT,
+            "§b%s\n§e%s§8/§7%s",
+            compactName,
+            formatCompactNumber(amount),
+            formatCompactNumber(maxCapacity)
+        );
+    }
+
+    @Nonnull
+    public static String truncateItemName(@Nonnull String rawName, int maxLength) {
+        String plain = rawName.replaceAll("§[0-9a-fk-orxA-FK-ORX]", "").trim();
+        if (plain.isEmpty()) {
+            return "Item";
+        }
+        if (plain.length() <= maxLength) {
+            return plain;
+        }
+        if (maxLength <= 1) {
+            return plain.substring(0, Math.max(0, maxLength));
+        }
+        return plain.substring(0, maxLength - 1).trim() + "…";
+    }
+
+    @Nonnull
+    public static String formatCompactNumber(long value) {
+        if (value < 0) {
+            return "0";
+        }
+        if (value < 1_000L) {
+            return Long.toString(value);
+        }
+        if (value < 1_000_000L) {
+            return formatUnit(value / 1_000.0, "K");
+        }
+        if (value < 1_000_000_000L) {
+            return formatUnit(value / 1_000_000.0, "M");
+        }
+        return formatUnit(value / 1_000_000_000.0, "B");
+    }
+
+    private static String formatUnit(double scaled, @Nonnull String suffix) {
+        double rounded = Math.round(scaled * 10.0) / 10.0;
+        if (rounded == Math.rint(rounded)) {
+            return String.format(Locale.ROOT, "%.0f%s", rounded, suffix);
+        }
+        return String.format(Locale.ROOT, "%.1f%s", rounded, suffix);
     }
 
     public static void removeQuantumHologram(@Nonnull Location location) {
@@ -174,7 +245,7 @@ public final class NetworkHologramManager {
             }
         }
         if (location.getWorld() != null && location.getWorld().isChunkLoaded(location.getBlockX() >> 4, location.getBlockZ() >> 4)) {
-            Location spawnLoc = location.clone().add(0.5, 1.35, 0.5);
+            Location spawnLoc = location.clone().add(0.5, QUANTUM_Y_OFFSET, 0.5);
             for (Entity nearby : location.getWorld().getNearbyEntities(spawnLoc, 1.0, 1.0, 1.0)) {
                 if (nearby instanceof TextDisplay td && td.getPersistentDataContainer().has(QUANTUM_HOLO_KEY, PersistentDataType.BYTE)) {
                     nearby.remove();

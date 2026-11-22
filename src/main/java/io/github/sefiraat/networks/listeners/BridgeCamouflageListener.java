@@ -63,12 +63,18 @@ public class BridgeCamouflageListener implements Listener {
 
         if (sfItem instanceof NetworkBridge) {
             final Player player = event.getPlayer();
+            final ItemStack inHand = event.getItem();
+
+            // Shift + Click Derecho con un bloque colocable en cualquier mano: dejar colocar.
+            if (NetworkBridge.shouldAllowSneakPlacement(player, inHand)) {
+                return;
+            }
+
             if (!Slimefun.getProtectionManager().hasPermission(player, block.getLocation(), Interaction.INTERACT_BLOCK)) {
                 return;
             }
 
-            final ItemStack inHand = event.getItem();
-            if (inHand != null && !inHand.getType().isAir() && CableCamouflage.allowed(inHand)) {
+            if (!player.isSneaking() && inHand != null && !inHand.getType().isAir() && CableCamouflage.allowed(inHand)) {
                 event.setCancelled(true);
                 ItemStack previous = CableCamouflage.apply(block, inHand, player);
                 if (player.getGameMode() != GameMode.CREATIVE) {
@@ -81,7 +87,7 @@ public class BridgeCamouflageListener implements Listener {
                     }
                 }
                 player.sendMessage("§a[Networks] §7Cable camuflado como §b" + inHand.getType().name() + "§7.");
-            } else if (inHand == null || inHand.getType().isAir() || player.isSneaking()) {
+            } else if (inHand == null || inHand.getType().isAir()) {
                 event.setCancelled(true);
                 new CableCamouflageMenu(block, player).open();
             }
