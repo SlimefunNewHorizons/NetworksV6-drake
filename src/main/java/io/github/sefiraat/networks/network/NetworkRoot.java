@@ -70,6 +70,8 @@ public class NetworkRoot extends NetworkNode {
     private final NetworkThroughputTracker throughput = new NetworkThroughputTracker();
     private final Map<Material, List<BarrelIdentity>> inputBarrelsByMaterial = new ConcurrentHashMap<>();
     private final Map<Material, List<BarrelIdentity>> outputBarrelsByMaterial = new ConcurrentHashMap<>();
+    private static final long BARRELS_CACHE_TTL_MS = 2_000L;
+    private volatile long inputBarrelsCachedAtMs = 0L;
     @Getter
     private final long CREATED_TIME = System.currentTimeMillis();
     @Getter
@@ -478,6 +480,7 @@ public class NetworkRoot extends NetworkNode {
         this.mapOutputAbleBarrels = null;
         this.inputBarrelsByMaterial.clear();
         this.outputBarrelsByMaterial.clear();
+        this.inputBarrelsCachedAtMs = 0L;
     }
 
     public int getNodeCount() {
@@ -962,7 +965,8 @@ public class NetworkRoot extends NetworkNode {
 
     @NotNull
     public Set<BarrelIdentity> getInputAbleBarrels() {
-        if (this.inputAbleBarrels != null) {
+        final long now = System.currentTimeMillis();
+        if (this.inputAbleBarrels != null && (now - this.inputBarrelsCachedAtMs) < BARRELS_CACHE_TTL_MS) {
             return this.inputAbleBarrels;
         }
 
@@ -1034,6 +1038,7 @@ public class NetworkRoot extends NetworkNode {
         this.mapInputAbleBarrels = map;
         this.inputBarrelsByMaterial.clear();
         this.inputBarrelsByMaterial.putAll(byMat);
+        this.inputBarrelsCachedAtMs = System.currentTimeMillis();
 
         return barrelSet;
     }
@@ -1545,9 +1550,10 @@ public class NetworkRoot extends NetworkNode {
             // Plantilla coincide pero el greedy no absorbió todo: seguir con barriles/celdas
         }
 
-        // Run for matching barrels - fast-path por material
+        // Run for matching barrels - refresca cache TTL y usa fast-path por material
+        final Set<BarrelIdentity> freshInputBarrels = getInputAbleBarrels();
         List<BarrelIdentity> candidateInputBarrels = inputBarrelsByMaterial.get(incoming.getType());
-        Iterable<BarrelIdentity> inputBarrelsToIterate = candidateInputBarrels != null ? candidateInputBarrels : getInputAbleBarrels();
+        Iterable<BarrelIdentity> inputBarrelsToIterate = candidateInputBarrels != null ? candidateInputBarrels : freshInputBarrels;
         for (BarrelIdentity barrelIdentity : inputBarrelsToIterate) {
             // <editor-fold desc="do barrel">
             if (StackUtils.itemsMatch(barrelIdentity.getItemStack(), incoming)) {

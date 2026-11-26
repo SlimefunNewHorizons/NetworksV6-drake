@@ -173,6 +173,12 @@
 
     <repositories>
         <repository>
+            <id>drakescraft-builds-maven</id>
+            <url>https://pack.drakescraft.cl/builds/maven/</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>true</enabled></snapshots>
+        </repository>
+        <repository>
             <id>drakescraft-labs-maven</id>
             <url>https://drakescraft-labs.github.io/maven-repo/</url>
             <releases>
